@@ -19,7 +19,7 @@ router.use("/auth", authRouter);
  * while requiring authentication for all other methods (POST, PUT, DELETE, etc.)
  */
 const optionalAuth = (req: any, res: any, next: any) => {
-  if (req.method === "GET") return next();
+  if (req.method === "GET" || req.method === "OPTIONS") return next();
   return requireAuth(req, res, next);
 };
 
