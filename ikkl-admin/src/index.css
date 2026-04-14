@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: 'Inter', sans-serif;
+  --font-display: 'Rajdhani', sans-serif;
+}
+
+:root {
+  --bg: #0a0f1a;
+  --surface: #111827;
+  --surface2: #1a2235;
+  --border: rgba(255,255,255,0.08);
+  --primary: #ffc300;
+  --primary-dim: rgba(255,195,0,0.15);
+  --text: #f0f4ff;
+  --text-muted: rgba(240,244,255,0.5);
+  --green: #22c55e;
+  --red: #ef4444;
+  --blue: #3b82f6;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,h2,h3,h4,h5,h6 { font-family: 'Rajdhani', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; }
+}
+
+@layer utilities {
+  .font-display { font-family: 'Rajdhani', sans-serif; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; }
+  .card2 { background: var(--surface2); border: 1px solid var(--border); border-radius: 0.75rem; }
+  .badge-live { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+  .badge-upcoming { background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+  .badge-completed { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.1); }
+  .btn-primary { background: var(--primary); color: #000814; font-family: 'Rajdhani', sans-serif; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; border-radius: 0.5rem; padding: 0.5rem 1.25rem; transition: opacity 0.15s; cursor: pointer; border: none; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem 1.25rem; transition: all 0.15s; cursor: pointer; font-family: inherit; }
+  .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+  .input { background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 0.5rem; padding: 0.5rem 0.875rem; outline: none; width: 100%; font-family: inherit; font-size: 0.875rem; transition: border-color 0.15s; }
+  .input:focus { border-color: var(--primary); }
+  .input::placeholder { color: var(--text-muted); }
+  select.input { cursor: pointer; }
+}
