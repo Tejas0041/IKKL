@@ -144,7 +144,7 @@ export default function Home() {
   const highlights = useMemo(() => ({
     matchesPlayed: allMatches.filter(m => m.status === "COMPLETED").length,
     totalPointsScored: allMatches.filter(m => m.status === "COMPLETED").reduce((s, m) => s + (m.scoreA ?? 0) + (m.scoreB ?? 0), 0),
-    activeTeams: new Set(allMatches.flatMap(m => [m.teamA.id, m.teamB.id])).size,
+    activeTeams: teams.length,
     avgPointsMatch: (() => {
       const completed = allMatches.filter(m => m.status === "COMPLETED");
       if (!completed.length) return 0;
@@ -159,8 +159,8 @@ export default function Home() {
   const logoOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   const [settings, setSettings] = useState({
-    leagueStartDate: "2026-04-03T00:00",
-    leagueEndDate: "2026-04-05T00:00",
+    leagueStartDate: "2026-04-14T00:00",
+    leagueEndDate: "2026-04-16T00:00",
     leagueVenue: "Parade Ground, IIEST Shibpur",
   });
 
@@ -377,8 +377,8 @@ export default function Home() {
             <motion.div initial={{ opacity: 0, x: 40 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.7 }}
               className="grid grid-cols-2 gap-3 sm:gap-4">
               {([
-                { icon: Users, title: "8 Teams", sub: "Top college squads", color: "rgba(59,130,246,0.15)", border: "rgba(59,130,246,0.3)" },
-                { icon: Calendar, title: "3–5 April", sub: "League matchdays", color: "rgba(255,195,0,0.1)", border: "rgba(255,195,0,0.25)" },
+                { icon: Users, title: "5 Teams", sub: "Top college squads", color: "rgba(59,130,246,0.15)", border: "rgba(59,130,246,0.3)" },
+                { icon: Calendar, title: "14–16 April", sub: "League matchdays", color: "rgba(255,195,0,0.1)", border: "rgba(255,195,0,0.25)" },
                 { icon: MapPin, title: "Parade Ground", sub: "IIEST Shibpur", color: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.25)" },
                 { icon: null as React.ElementType | null, title: "IKKL 1.0", sub: "Inaugural edition", color: "rgba(255,195,0,0.08)", border: "rgba(255,195,0,0.2)" },
               ]).map((item, i) => (

@@ -4,8 +4,8 @@ import { Settings } from "../models/Settings.js";
 const router = Router();
 
 const DEFAULTS: Record<string, string> = {
-  leagueStartDate: "2026-04-03T00:00",
-  leagueEndDate: "2026-04-05T00:00",
+  leagueStartDate: "2026-04-14T00:00",
+  leagueEndDate: "2026-04-16T00:00",
   leagueVenue: "Parade Ground, IIEST Shibpur",
 };
 

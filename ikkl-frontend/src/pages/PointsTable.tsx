@@ -81,10 +81,10 @@ export default function PointsTable() {
           </div>
 
           {TABLE.map((row, i) => {
-            const isTop4 = i < 4;
+            const isTop2 = i < 2;
             return (
               <div key={row.team.id}>
-                {i === 4 && (
+                {i === 2 && (
                   <div className="flex items-center gap-2 px-3 sm:px-5 py-1.5"
                     style={{ borderTop: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(0,0,0,0.2)" }}>
                     <div className="h-px flex-1" style={{ background: "linear-gradient(90deg,rgba(255,195,0,0.4),transparent)" }} />
@@ -93,9 +93,9 @@ export default function PointsTable() {
                   </div>
                 )}
                 <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 + i * 0.05 }}
-                  className={clsx("grid px-3 sm:px-5 py-3 sm:py-3.5 relative transition-colors", isTop4 ? "hover:bg-white/[0.03]" : "opacity-55 hover:opacity-75")}
-                  style={{ gridTemplateColumns: "2rem 1fr 2.5rem 2.5rem 4rem 2.5rem", gap: "0.25rem", borderLeft: isTop4 ? "3px solid #ffc300" : "3px solid transparent", borderBottom: i < TABLE.length - 1 && i !== 3 ? "1px solid rgba(255,255,255,0.04)" : undefined }}>
-                  {isTop4 && <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.05] to-transparent pointer-events-none" />}
+                  className={clsx("grid px-3 sm:px-5 py-3 sm:py-3.5 relative transition-colors", isTop2 ? "hover:bg-white/[0.03]" : "opacity-55 hover:opacity-75")}
+                  style={{ gridTemplateColumns: "2rem 1fr 2.5rem 2.5rem 4rem 2.5rem", gap: "0.25rem", borderLeft: isTop2 ? "3px solid #ffc300" : "3px solid transparent", borderBottom: i < TABLE.length - 1 && i !== 1 ? "1px solid rgba(255,255,255,0.04)" : undefined }}>
+                  {isTop2 && <div className="absolute inset-0 bg-gradient-to-r from-primary/[0.05] to-transparent pointer-events-none" />}
 
                   {/* Pos */}
                   <div className="flex items-center relative">
@@ -131,7 +131,7 @@ export default function PointsTable() {
 
                   {/* Pts */}
                   <div className="flex items-center justify-center relative">
-                    <span className={clsx("font-display font-black text-lg sm:text-xl", isTop4 ? "text-primary" : "text-white/40")}>
+                    <span className={clsx("font-display font-black text-lg sm:text-xl", isTop2 ? "text-primary" : "text-white/40")}>
                       {row.pts}
                     </span>
                   </div>
@@ -152,11 +152,11 @@ export default function PointsTable() {
             <div className="flex gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: "#ffc300" }} />
-                <span className="text-xs text-white/70">Top 4 → Knockout stage</span>
+                <span className="text-xs text-white/70">Top 2 → Final</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: "rgba(255,255,255,0.15)" }} />
-                <span className="text-xs text-white/50">Below 4th → Eliminated</span>
+                <span className="text-xs text-white/50">Below 2nd → Eliminated</span>
               </div>
             </div>
           </div>

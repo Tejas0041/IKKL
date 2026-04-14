@@ -53,11 +53,11 @@ export default function PointsTable() {
               </thead>
               <tbody>
                 {table.map((row, i) => {
-                  const isTop4 = i < 4;
+                  const isTop2 = i < 2;
                   return (
                     <tr key={row.team.id}
-                      className={clsx("transition-colors", isTop4 ? "hover:bg-white/[0.03]" : "opacity-60 hover:opacity-80")}
-                      style={{ borderBottom: "1px solid var(--border)", borderLeft: isTop4 ? "3px solid var(--primary)" : "3px solid transparent" }}>
+                      className={clsx("transition-colors", isTop2 ? "hover:bg-white/[0.03]" : "opacity-60 hover:opacity-80")}
+                      style={{ borderBottom: "1px solid var(--border)", borderLeft: isTop2 ? "3px solid var(--primary)" : "3px solid transparent" }}>
                       <td className="px-4 py-3">
                         {i === 0
                           ? <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: "rgba(255,195,0,0.15)", border: "1px solid rgba(255,195,0,0.3)" }}><Crown className="w-3.5 h-3.5" style={{ color: "var(--primary)" }} /></div>
@@ -74,7 +74,7 @@ export default function PointsTable() {
                       <td className="px-4 py-3 font-mono text-sm" style={{ color: row.nrr > 0 ? "#22c55e" : row.nrr < 0 ? "#ef4444" : "var(--text-muted)" }}>
                         {row.nrr > 0 ? "+" : ""}{row.nrr.toFixed(2)}
                       </td>
-                      <td className="px-4 py-3 font-display font-black text-xl" style={{ color: isTop4 ? "var(--primary)" : "var(--text-muted)" }}>{row.pts}</td>
+                      <td className="px-4 py-3 font-display font-black text-xl" style={{ color: isTop2 ? "var(--primary)" : "var(--text-muted)" }}>{row.pts}</td>
                     </tr>
                   );
                 })}
@@ -82,7 +82,7 @@ export default function PointsTable() {
             </table>
           </div>
           <div className="px-4 py-3 text-xs" style={{ borderTop: "1px solid var(--border)", background: "var(--surface2)", color: "var(--text-muted)" }}>
-            Win = 2 pts · NRR = margin ÷ 10 · Top 4 qualify
+            Win = 2 pts · NRR = margin ÷ 10 · Top 2 qualify
           </div>
         </div>
       )}
