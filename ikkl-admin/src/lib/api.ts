@@ -55,7 +55,12 @@ export const api = {
   uploadFile: async (file: File): Promise<string> => {
     const form = new FormData();
     form.append("file", file);
-    const res = await fetch(`${BASE}/upload`, { method: "POST", body: form });
+    const res = await fetch(`${BASE}/upload`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${getToken()}` },
+      body: form,
+    });
+    if (res.status === 401) { localStorage.removeItem("ikkl_token"); window.location.href = "/login"; throw new Error("Unauthorized"); }
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json() as { url: string };
     return data.url;

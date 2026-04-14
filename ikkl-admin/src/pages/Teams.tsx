@@ -38,10 +38,16 @@ export default function Teams() {
       const url = await api.uploadFile(file);
       setForm(f => ({ ...f, logo: url }));
     } catch (err) {
-      alert("Upload failed: " + (err as Error).message);
+      const msg = (err as Error).message;
+      if (msg.includes("Cloudinary not configured") || msg.includes("503")) {
+        alert("Logo upload is not available: Cloudinary API keys are not configured on the server.\n\nPlease add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to your Render environment variables.");
+      } else {
+        alert("Upload failed: " + msg);
+      }
       setPreview(form.logo);
     } finally {
       setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
   };
 

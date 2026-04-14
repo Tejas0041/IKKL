@@ -14,6 +14,10 @@ cloudinary.config({
 router.post("/", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file provided" });
 
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    return res.status(503).json({ error: "Cloudinary not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET in environment variables." });
+  }
+
   try {
     const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
