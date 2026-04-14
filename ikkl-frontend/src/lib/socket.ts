@@ -24,7 +24,7 @@ export interface ScoreUpdate {
 export interface TimerUpdate {
   matchId: string;
   seconds: number;
-  ms: number;
+  ms?: number;
   running: boolean;
   visible: boolean;
 }

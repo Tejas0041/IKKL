@@ -99,9 +99,7 @@ export default function Scorecard() {
 
     socket.on("timer:update", (update: TimerUpdate) => {
       setTimer(update);
-      // Use exact ms from admin — don't reset to 0
       setLocalMs(update.ms ?? 0);
-      // Reset RAF start so it continues from this ms value
       msStartRef.current = performance.now();
     });
 
