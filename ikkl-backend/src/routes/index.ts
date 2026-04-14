@@ -14,18 +14,23 @@ router.get("/health", (_req, res) => res.json({ status: "ok" }));
 // Auth — public
 router.use("/auth", authRouter);
 
-// Public read-only routes (GET only, no auth)
-router.get("/teams", (req, res, next) => teamsRouter(req, res, next));
-router.get("/matches", (req, res, next) => matchesRouter(req, res, next));
-router.get("/matches/:matchId", (req, res, next) => matchesRouter(req, res, next));
-router.get("/settings", (req, res, next) => settingsRouter(req, res, next));
-router.get("/timer/:matchId", (req, res, next) => timerRouter(req, res, next));
+/**
+ * Middleware to allow GET requests without authentication,
+ * while requiring authentication for all other methods (POST, PUT, DELETE, etc.)
+ */
+const optionalAuth = (req: any, res: any, next: any) => {
+  if (req.method === "GET") return next();
+  return requireAuth(req, res, next);
+};
 
-// All mutations require auth
-router.use("/teams", requireAuth, teamsRouter);
-router.use("/matches", requireAuth, matchesRouter);
-router.use("/settings", requireAuth, settingsRouter);
+// Mount routers with public read-only access and authenticated write access
+router.use("/teams", optionalAuth, teamsRouter);
+router.use("/matches", optionalAuth, matchesRouter);
+router.use("/settings", optionalAuth, settingsRouter);
+router.use("/timer", optionalAuth, timerRouter);
+
+// Upload always requires authentication as it's typically a POST-only mutation
 router.use("/upload", requireAuth, uploadRouter);
-router.use("/timer", requireAuth, timerRouter);
 
 export default router;
+

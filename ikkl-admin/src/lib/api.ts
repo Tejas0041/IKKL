@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const BASE = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 function getToken() { return localStorage.getItem("ikkl_token") || ""; }
 
@@ -6,14 +6,14 @@ async function req<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${getToken()}`,
+      ...(getToken() ? { "Authorization": `Bearer ${getToken()}` } : {}),
       ...((options?.headers as Record<string, string>) || {}),
     },
     ...options,
   });
   if (res.status === 401) {
     localStorage.removeItem("ikkl_token");
-    window.location.href = "/login";
+    window.location.href = "/";
     throw new Error("Unauthorized");
   }
   if (!res.ok) throw new Error(await res.text());
@@ -27,7 +27,7 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    if (!res.ok) throw new Error((await res.json()).error || "Login failed");
+    if (!res.ok) throw new Error((await res.json() as { error: string }).error || "Login failed");
     const data = await res.json() as { token: string };
     return data.token;
   },
@@ -57,10 +57,10 @@ export const api = {
     form.append("file", file);
     const res = await fetch(`${BASE}/upload`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${getToken()}` },
+      headers: { ...(getToken() ? { "Authorization": `Bearer ${getToken()}` } : {}) },
       body: form,
     });
-    if (res.status === 401) { localStorage.removeItem("ikkl_token"); window.location.href = "/login"; throw new Error("Unauthorized"); }
+    if (res.status === 401) { localStorage.removeItem("ikkl_token"); window.location.href = "/"; throw new Error("Unauthorized"); }
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json() as { url: string };
     return data.url;
