@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import { Trophy, Users, MapPin, Calendar, ChevronRight, Activity, Clock, Star, Flame } from "lucide-react";
 import { MatchCard } from "@/components/ui/MatchCard";
+import { MatchCardSkeleton } from "@/components/ui/DotsLoader";
 import { fetchSettings, fetchMatches, fetchTeams } from "@/lib/api";
 import type { Match, Team } from "@/lib/types";
 
@@ -138,6 +139,7 @@ const NeonDivider = () => (
 export default function Home() {
   const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [matchesLoading, setMatchesLoading] = useState(true);
   const featuredMatches = allMatches.slice(0, 4);
   const liveMatch = allMatches.find(m => m.status === "LIVE");
 
@@ -166,7 +168,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchSettings().then(s => setSettings(prev => ({ ...prev, ...s })));
-    fetchMatches().then(m => setAllMatches(m));
+    fetchMatches().then(m => { setAllMatches(m); setMatchesLoading(false); });
     fetchTeams().then(t => setTeams(t));
   }, []);
 
@@ -423,7 +425,20 @@ export default function Home() {
             </Link>
           </div>
           {/* Mobile: horizontal scroll showing 1.3 cards; desktop: grid */}
-          {featuredMatches.length === 0 ? (
+          {matchesLoading ? (
+            <>
+              <div className="sm:hidden -mx-4 flex pb-2" style={{ overflowX: "auto", paddingLeft: "1rem", paddingRight: "1rem" }}>
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="shrink-0 mr-3" style={{ width: "76vw", maxWidth: 300 }}>
+                    <MatchCardSkeleton />
+                  </div>
+                ))}
+              </div>
+              <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                {Array.from({ length: 4 }).map((_, i) => <MatchCardSkeleton key={i} />)}
+              </div>
+            </>
+          ) : featuredMatches.length === 0 ? (
             <div className="py-10 text-center rounded-2xl" style={{ background: "rgba(0,29,61,0.3)", border: "1px solid rgba(255,255,255,0.06)" }}>
               <p className="text-white/40 text-sm">No matches scheduled yet.</p>
             </div>

@@ -1,0 +1,8 @@
+see here on home page, it shows Live
+·
+CYC 21 – 18 IRO
+Watch →
+
+but there's no such match live, there's still some hardcoded stuff, plz remove it
+
+same as in schedule page team dropdown, instead of actual team names, there's hardcoded names

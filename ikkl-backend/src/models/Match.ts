@@ -37,9 +37,12 @@ export interface IMatch extends Document {
   status: "LIVE" | "UPCOMING" | "COMPLETED";
   scoreA?: number;
   scoreB?: number;
-  inning?: number; // 1 or 2
+  inning?: number;
   inning1ScoreA?: number;
   inning1ScoreB?: number;
+  inningBreak?: boolean;        // true during the break between innings
+  victoryType?: "POINTS" | "TIME"; // how the match was decided
+  winMarginSeconds?: number;       // only set when victoryType === "TIME"
   statsA?: typeof MatchStatsSchema;
   statsB?: typeof MatchStatsSchema;
 }
@@ -57,6 +60,9 @@ const MatchSchema = new Schema<IMatch>({
   inning: { type: Number, default: 1 },
   inning1ScoreA: Number,
   inning1ScoreB: Number,
+  inningBreak: { type: Boolean, default: false },
+  victoryType: { type: String, enum: ["POINTS", "TIME"] },
+  winMarginSeconds: Number,
   statsA: MatchStatsSchema,
   statsB: MatchStatsSchema,
 }, { timestamps: true });

@@ -2,14 +2,18 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Match } from "@/lib/types";
 import { Activity, Calendar, CheckCircle, Users } from "lucide-react";
+import { AdminLoader, CardSkeleton } from "@/components/AdminLoader";
 
 export default function Dashboard() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [teamCount, setTeamCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.getMatches().then(d => setMatches(d as Match[])).catch(() => {});
-    api.getTeams().then(d => setTeamCount((d as unknown[]).length)).catch(() => {});
+    Promise.all([
+      api.getMatches().then(d => setMatches(d as Match[])),
+      api.getTeams().then(d => setTeamCount((d as unknown[]).length)),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const liveMatches = matches.filter(m => m.status === "LIVE");
@@ -30,6 +34,11 @@ export default function Dashboard() {
         <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>IKKL 1.0 · Season 2026 Overview</p>
       </div>
 
+      {loading ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)}
+        </div>
+      ) : (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="card p-5">
@@ -43,8 +52,14 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[0,1].map(i => <div key={i} className="card p-5"><AdminLoader /></div>)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-5">
           <h2 className="text-lg font-display font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text)" }}>
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse inline-block" /> Live Matches
@@ -89,8 +104,12 @@ export default function Dashboard() {
             </div>
           }
         </div>
-      </div>
+        </div>
+      )}
 
+      {loading ? (
+        <div className="card p-5"><AdminLoader label="Loading results" /></div>
+      ) : (
       <div className="card p-5">
         <h2 className="text-lg font-display font-bold mb-4" style={{ color: "var(--text)" }}>Recent Results</h2>
         {recentMatches.length === 0
@@ -118,6 +137,7 @@ export default function Dashboard() {
           </div>
         }
       </div>
+      )}
     </div>
   );
 }

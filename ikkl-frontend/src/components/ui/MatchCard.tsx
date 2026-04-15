@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import type { Match } from "@/lib/types";
 import { MapPin, Clock, CalendarDays } from "lucide-react";
 import { TeamBadge } from "./TeamBadge";
+import { victoryMarginStr } from "@/lib/utils";
 
 interface MatchCardProps {
   match: Match;
@@ -70,7 +71,10 @@ export function MatchCard({ match, className }: MatchCardProps) {
 
         <div className="px-5 py-3 border-t border-[#003566]/50 bg-[#000814]/40 flex justify-between items-center text-xs text-white/50">
           <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-primary/70" />{match.time}</div>
-          <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-secondary/70" />{match.venue}</div>
+          {isCompleted && victoryMarginStr(match)
+            ? <span className="text-primary/70 font-medium">{victoryMarginStr(match)}</span>
+            : <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-secondary/70" />{match.venue}</div>
+          }
         </div>
 
         {(isCompleted || isLive) && (

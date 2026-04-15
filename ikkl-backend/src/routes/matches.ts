@@ -52,6 +52,8 @@ router.put("/:matchId", async (req, res) => {
     { new: true }
   );
   if (!match) return res.status(404).json({ error: "Match not found" });
+  // Emit so frontend updates in real-time (e.g. inningBreak toggle)
+  getIO()?.emit("scores:changed");
   res.json(match);
 });
 
@@ -86,21 +88,46 @@ router.patch("/:matchId/inning", async (req, res) => {
   const { action } = req.body; // "end_inning1" | "end_match"
 
   if (action === "end_inning1") {
-    // Save inning 1 snapshot — scores keep accumulating, no reset
+    // Save inning 1 snapshot, reset match timer to 7min, set inningBreak
     await Match.findOneAndUpdate(
       { matchId: req.params.matchId },
-      { $set: { inning: 2, inning1ScoreA: match.scoreA ?? 0, inning1ScoreB: match.scoreB ?? 0 } },
+      { $set: { inning: 2, inning1ScoreA: match.scoreA ?? 0, inning1ScoreB: match.scoreB ?? 0, inningBreak: true } },
+      { new: true }
+    );
+    // Reset match timer to 7 minutes
+    const { Settings } = await import("../models/Settings.js");
+    await Settings.findOneAndUpdate(
+      { key: `timer:${req.params.matchId}` },
+      { value: JSON.stringify({ remainingMs: 7 * 60 * 1000, running: false, visible: true, savedAt: Date.now() }) },
+      { upsert: true }
+    );
+    getIO()?.emit("scores:changed");
+    return res.json({ ok: true, inning: 2, inningBreak: true });
+  }
+
+  if (action === "start_inning2") {
+    await Match.findOneAndUpdate(
+      { matchId: req.params.matchId },
+      { $set: { inningBreak: false } },
       { new: true }
     );
     getIO()?.emit("scores:changed");
-    return res.json({ ok: true, inning: 2 });
+    return res.json({ ok: true, inningBreak: false });
   }
 
   if (action === "end_match") {
-    // Final scores are already the running total — just mark completed
+    // victoryType: "POINTS" | "TIME"
+    // winMarginSeconds: number (only relevant when victoryType === "TIME")
+    const { victoryType, winMarginSeconds } = req.body;
     const updated = await Match.findOneAndUpdate(
       { matchId: req.params.matchId },
-      { $set: { status: "COMPLETED" } },
+      {
+        $set: {
+          status: "COMPLETED",
+          ...(victoryType && { victoryType }),
+          ...(winMarginSeconds !== undefined && { winMarginSeconds }),
+        },
+      },
       { new: true }
     );
     getIO()?.emit("scores:changed");
@@ -108,6 +135,18 @@ router.patch("/:matchId/inning", async (req, res) => {
   }
 
   res.status(400).json({ error: "Invalid action" });
+});
+
+// Update stats for a completed match
+router.patch("/:matchId/stats", async (req, res) => {
+  const { statsA, statsB } = req.body;
+  const match = await Match.findOneAndUpdate(
+    { matchId: req.params.matchId },
+    { $set: { ...(statsA && { statsA }), ...(statsB && { statsB }) } },
+    { new: true }
+  );
+  if (!match) return res.status(404).json({ error: "Match not found" });
+  res.json(match);
 });
 
 router.delete("/:matchId", async (req, res) => {

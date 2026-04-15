@@ -16,6 +16,11 @@ export function initSocket(server: HttpServer) {
     socket.on("timer:update", (data: { matchId: string; seconds: number; ms: number; running: boolean; visible: boolean }) => {
       io?.to(`match:${data.matchId}`).emit("timer:update", data);
     });
+
+    // Break timer control from admin
+    socket.on("break:update", (data: { matchId: string; seconds: number; running: boolean }) => {
+      io?.to(`match:${data.matchId}`).emit("break:update", data);
+    });
   });
 
   return io;

@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
-import { fetchMatches } from "@/lib/api";
-import { TEAMS } from "@/lib/mock-data";
+import { fetchMatches, fetchTeams } from "@/lib/api";
 import { Filter, Calendar as CalIcon, MapPin, Clock, Trophy, ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
-import type { Match } from "@/lib/types";
+import type { Match, Team } from "@/lib/types";
 import { TeamBadge } from "@/components/ui/TeamBadge";
+import { DotsLoader, MatchCardSkeleton } from "@/components/ui/DotsLoader";
+import { PageBg } from "@/components/layout/PageBg";
+import { victoryMarginStr } from "@/lib/utils";
 
 type FilterTab = "ALL" | "TODAY" | "UPCOMING" | "COMPLETED";
 
@@ -23,7 +25,7 @@ const TEAM_COLORS: Record<string, { bg: string; border: string; text: string; gl
 
 const fallback = TEAM_COLORS.THU;
 
-const MatchCard = ({ match, index }: { match: Match; index: number }) => {
+const MatchCard = ({ match, index, matchNumber }: { match: Match; index: number; matchNumber: number }) => {
   const isLive      = match.status === "LIVE";
   const isCompleted = match.status === "COMPLETED";
   const hasScores   = match.scoreA !== undefined && match.scoreB !== undefined;
@@ -178,7 +180,10 @@ const MatchCard = ({ match, index }: { match: Match; index: number }) => {
         {(isCompleted || isLive) && (
           <div className="mt-4 pt-3.5 border-t flex items-center justify-between"
             style={{ borderColor: isLive ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.04)" }}>
-            <span className="text-[11px] text-white/20 font-medium">Match #{(match.matchId || match.id || "").replace("m", "")}</span>
+            <span className="text-[11px] font-medium"
+              style={{ color: isCompleted && victoryMarginStr(match) ? "rgba(255,195,0,0.6)" : "rgba(255,255,255,0.2)" }}>
+              {isCompleted && victoryMarginStr(match) ? victoryMarginStr(match) : `Match #${matchNumber}`}
+            </span>
             <Link href={`/scorecard/${match.matchId || match.id}`}
               className="flex items-center gap-1.5 transition-colors duration-200"
               style={{ color: isLive ? "rgba(239,68,68,0.7)" : "rgba(255,195,0,0.7)" }}
@@ -207,10 +212,18 @@ const MatchCard = ({ match, index }: { match: Match; index: number }) => {
 
 export default function Schedule() {
   const [allMatches, setAllMatches] = useState<Match[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
   const [selectedTeam, setSelectedTeam] = useState("ALL");
 
-  useEffect(() => { fetchMatches().then(setAllMatches); }, []);
+  useEffect(() => {
+    Promise.all([fetchMatches(), fetchTeams()]).then(([m, t]) => {
+      setAllMatches(m);
+      setTeams(t);
+      setLoading(false);
+    });
+  }, []);
 
   const filteredMatches = useMemo(() => allMatches.filter(m => {
     if (activeTab === "UPCOMING"  && m.status !== "UPCOMING" && m.status !== "LIVE")    return false;
@@ -225,20 +238,19 @@ export default function Schedule() {
     return g;
   }, [filteredMatches]);
 
+  // Sequential match numbers based on full sorted list
+  const matchNumberMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    allMatches.forEach((m, i) => { map[m.matchId || m.id] = i + 1; });
+    return map;
+  }, [allMatches]);
+
   const liveCount = allMatches.filter(m => m.status === "LIVE").length;
 
   return (
     <div className="min-h-screen pt-24 pb-20 relative overflow-x-hidden w-full">
 
-      {/* Background */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.016]"
-          style={{ backgroundImage: "linear-gradient(rgba(255,195,0,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,195,0,1) 1px,transparent 1px)", backgroundSize: "64px 64px" }} />
-        <div className="absolute -top-32 left-1/3 w-[600px] h-[600px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(255,195,0,0.07), transparent 70%)", filter: "blur(120px)" }} />
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(59,130,246,0.07), transparent 70%)", filter: "blur(120px)" }} />
-      </div>
+      <PageBg />
 
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
 
@@ -247,7 +259,7 @@ export default function Schedule() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-5"
             style={{ background: "rgba(255,195,0,0.07)", border: "1px solid rgba(255,195,0,0.2)" }}>
             <CalIcon className="w-3.5 h-3.5 text-primary" />
-            <span className="text-[10px] font-bold tracking-[0.25em] text-primary/80 uppercase">IKKL 2026 · 3 – 5 April</span>
+            <span className="text-[10px] font-bold tracking-[0.25em] text-primary/80 uppercase">IKKL 2026 · 14 – 16 April</span>
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
@@ -317,7 +329,7 @@ export default function Schedule() {
                 style={{ minWidth: "160px" }}
               >
                 <option value="ALL" className="bg-[#00050f]">All Teams</option>
-                {Object.values(TEAMS).map(t => (
+                {teams.map(t => (
                   <option key={t.id} value={t.id} className="bg-[#00050f]">{t.name}</option>
                 ))}
               </select>
@@ -327,7 +339,11 @@ export default function Schedule() {
 
         {/* ── MATCH GROUPS ── */}
         <AnimatePresence mode="wait">
-          {Object.keys(groupedMatches).length === 0 ? (
+          {loading ? (
+            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => <MatchCardSkeleton key={i} />)}
+            </motion.div>
+          ) : Object.keys(groupedMatches).length === 0 ? (
             <motion.div
               key="empty"
               initial={{ opacity: 0, scale: 0.97 }}
@@ -364,7 +380,7 @@ export default function Schedule() {
 
                   {/* Cards grid */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                    {matches.map((m, i) => <MatchCard key={m.matchId || m.id || i} match={m} index={i} />)}
+                    {matches.map((m, i) => <MatchCard key={m.matchId || m.id || i} match={m} index={i} matchNumber={matchNumberMap[m.matchId || m.id] ?? i + 1} />)}
                   </div>
                 </motion.div>
               ))}

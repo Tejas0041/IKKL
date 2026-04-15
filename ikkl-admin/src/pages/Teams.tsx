@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Team } from "@/lib/types";
 import { Plus, Pencil, Trash2, X, Upload } from "lucide-react";
 import { api } from "@/lib/api";
+import { AdminLoader } from "@/components/AdminLoader";
 
 const EMPTY = { name: "", shortName: "", color: "#3b82f6", logo: "" };
 
@@ -78,7 +79,7 @@ export default function Teams() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>Loading…</p>
+        <div className="card"><AdminLoader label="Loading teams" /></div>
       ) : teams.length === 0 ? (
         <div className="card p-12 text-center">
           <p className="font-display font-bold text-xl mb-2" style={{ color: "var(--text)" }}>No Teams Yet</p>

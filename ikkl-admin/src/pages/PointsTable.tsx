@@ -3,6 +3,7 @@ import type { Match } from "@/lib/types";
 import { Crown } from "lucide-react";
 import { clsx } from "clsx";
 import { api } from "@/lib/api";
+import { AdminLoader, TableRowSkeleton } from "@/components/AdminLoader";
 
 interface Row { team: { id: string; name: string; shortName: string; color: string }; played: number; won: number; lost: number; pts: number; nrr: number; }
 
@@ -25,7 +26,10 @@ function compute(matches: Match[]): Row[] {
 
 export default function PointsTable() {
   const [table, setTable] = useState<Row[]>([]);
-  useEffect(() => { api.getMatches().then(d => setTable(compute(d as Match[]))).catch(() => {}); }, []);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    api.getMatches().then(d => { setTable(compute(d as Match[])); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -34,7 +38,25 @@ export default function PointsTable() {
         <p className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>Live standings · auto-computed from match results</p>
       </div>
 
-      {table.length === 0 ? (
+      {loading ? (
+        <div className="card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[400px]">
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface2)" }}>
+                  {["#", "Team", "W", "L", "NRR", "Pts"].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider"
+                      style={{ color: "var(--text-muted)" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} />)}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : table.length === 0 ? (
         <div className="card p-12 text-center">
           <p className="font-display font-bold text-xl mb-2" style={{ color: "var(--text)" }}>No Data Yet</p>
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>Points table will populate once matches are completed.</p>

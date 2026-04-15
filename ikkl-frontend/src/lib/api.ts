@@ -11,8 +11,7 @@ export async function fetchMatches(params?: { status?: string; team?: string }):
     if (!res.ok) throw new Error("Failed to fetch matches");
     return res.json();
   } catch {
-    const { MOCK_MATCHES } = await import("./mock-data");
-    return MOCK_MATCHES;
+    return [];
   }
 }
 
@@ -49,5 +48,15 @@ export async function fetchTimer(matchId: string): Promise<{ remainingMs: number
     return res.json();
   } catch {
     return { remainingMs: 7 * 60 * 1000, running: false, visible: true, savedAt: null };
+  }
+}
+
+export async function fetchBreakTimer(matchId: string): Promise<{ remainingMs: number; running: boolean; savedAt: number | null }> {
+  try {
+    const res = await fetch(`${BASE}/timer/break/${matchId}`);
+    if (!res.ok) throw new Error();
+    return res.json();
+  } catch {
+    return { remainingMs: 5 * 60 * 1000, running: false, savedAt: null };
   }
 }

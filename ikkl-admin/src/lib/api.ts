@@ -40,8 +40,10 @@ export const api = {
   updateMatch: (id: string, data: unknown) => req<unknown>(`/matches/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   updateScore: (id: string, data: { scoreA: number; scoreB: number; status?: string; scoringTeam?: "A" | "B"; points?: number; category?: "normal" | "dive"; teamName?: string }) =>
     req<unknown>(`/matches/${id}/score`, { method: "PATCH", body: JSON.stringify(data) }),
-  endInning: (id: string, action: "end_inning1" | "end_match") =>
-    req<unknown>(`/matches/${id}/inning`, { method: "PATCH", body: JSON.stringify({ action }) }),
+  endInning: (id: string, action: "end_inning1" | "end_match" | "start_inning2", extra?: { victoryType?: "POINTS" | "TIME"; winMarginSeconds?: number }) =>
+    req<unknown>(`/matches/${id}/inning`, { method: "PATCH", body: JSON.stringify({ action, ...extra }) }),
+  updateStats: (id: string, data: { statsA?: unknown; statsB?: unknown }) =>
+    req<unknown>(`/matches/${id}/stats`, { method: "PATCH", body: JSON.stringify(data) }),
   deleteMatch: (id: string) => req<unknown>(`/matches/${id}`, { method: "DELETE" }),
   getTeams: () => req<unknown[]>("/teams"),
   createTeam: (data: unknown) => req<unknown>("/teams", { method: "POST", body: JSON.stringify(data) }),
@@ -52,6 +54,9 @@ export const api = {
   getTimer: (matchId: string) => req<{ remainingMs: number; running: boolean; visible: boolean; savedAt: number | null }>(`/timer/${matchId}`),
   saveTimer: (matchId: string, data: { remainingMs: number; running: boolean; visible: boolean }) =>
     req<unknown>(`/timer/${matchId}`, { method: "PUT", body: JSON.stringify(data) }),
+  getBreakTimer: (matchId: string) => req<{ remainingMs: number; running: boolean; savedAt: number | null }>(`/timer/break/${matchId}`),
+  saveBreakTimer: (matchId: string, data: { remainingMs: number; running: boolean }) =>
+    req<unknown>(`/timer/break/${matchId}`, { method: "PUT", body: JSON.stringify(data) }),
   uploadFile: async (file: File): Promise<string> => {
     const form = new FormData();
     form.append("file", file);

@@ -42,7 +42,7 @@ export function Footer() {
           <div>
             <h4 className="font-display text-lg font-semibold tracking-wider text-white mb-4">Event Info</h4>
             <ul className="space-y-3 text-sm text-white/60">
-              <li className="text-primary font-medium">3–5 April 2026</li>
+              <li className="text-primary font-medium">14–16 April 2026</li>
               <li>Parade Ground, IIEST Shibpur</li>
               <li>Howrah, West Bengal</li>
             </ul>

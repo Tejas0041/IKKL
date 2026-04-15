@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import type { Match, MatchStatus, Team } from "@/lib/types";
-import { Plus, Pencil, Trash2, X, ChevronLeft, ChevronRight, Calendar, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { Match, MatchStats, MatchStatus, Team } from "@/lib/types";
+import { Plus, Pencil, Trash2, X, ChevronLeft, ChevronRight, Calendar, Clock, BarChart2 } from "lucide-react";
 import { clsx } from "clsx";
 import { api } from "@/lib/api";
 
@@ -28,41 +28,37 @@ function toTimeStr(iso: string) {
 /* ── Mini time scroller ── */
 function TimeScroller({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [hh, mm] = value.split(":").map(Number);
-  const hourRef = useRef<HTMLDivElement>(null);
-  const minRef = useRef<HTMLDivElement>(null);
-  const ITEM_H = 32;
-  const scrollTo = (ref: React.RefObject<HTMLDivElement | null>, idx: number) =>
-    ref.current?.scrollTo({ top: idx * ITEM_H, behavior: "smooth" });
-  useEffect(() => { scrollTo(hourRef, hh); }, [hh]);
-  useEffect(() => { scrollTo(minRef, mm); }, [mm]);
-  const col: React.CSSProperties = { height: ITEM_H * 5, overflowY: "scroll", scrollSnapType: "y mandatory", scrollbarWidth: "none" };
-  return (
-    <div className="flex items-center gap-2 justify-center">
-      {[{ ref: hourRef, items: Array.from({length:24},(_,i)=>i), val: hh,
-          onScroll: () => { if (!hourRef.current) return; onChange(`${String(Math.round(hourRef.current.scrollTop/ITEM_H)).padStart(2,"0")}:${String(mm).padStart(2,"0")}`); },
-          onClick: (v: number) => { onChange(`${String(v).padStart(2,"0")}:${String(mm).padStart(2,"0")}`); scrollTo(hourRef, v); }, label: "HH" },
-       { ref: minRef, items: Array.from({length:60},(_,i)=>i), val: mm,
-          onScroll: () => { if (!minRef.current) return; onChange(`${String(hh).padStart(2,"0")}:${String(Math.round(minRef.current.scrollTop/ITEM_H)).padStart(2,"0")}`); },
-          onClick: (v: number) => { onChange(`${String(hh).padStart(2,"0")}:${String(v).padStart(2,"0")}`); scrollTo(minRef, v); }, label: "MM" }
-      ].map((c, ci) => (
-        <div key={ci} className="flex flex-col items-center gap-1">
-          <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>{c.label}</span>
-          <div style={{ position: "relative", borderRadius: "0.5rem", overflow: "hidden", background: "var(--surface2)", border: "1px solid var(--border)" }}>
-            <div className="pointer-events-none absolute inset-x-0" style={{ top: ITEM_H*2, height: ITEM_H, background: "rgba(255,195,0,0.12)", borderTop: "1px solid rgba(255,195,0,0.3)", borderBottom: "1px solid rgba(255,195,0,0.3)", zIndex: 1 }} />
-            <div ref={c.ref} style={{ ...col, width: 52 }} onScroll={c.onScroll}>
-              <div style={{ height: ITEM_H*2 }} />
-              {c.items.map(v => (
-                <div key={v} onClick={() => c.onClick(v)}
-                  style={{ height: ITEM_H, scrollSnapAlign: "start", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-                    color: v === c.val ? "var(--primary)" : "var(--text-muted)", fontWeight: v === c.val ? 700 : 400, fontSize: "0.85rem" }}>
-                  {String(v).padStart(2,"0")}
-                </div>
-              ))}
-              <div style={{ height: ITEM_H*2 }} />
-            </div>
-          </div>
+
+  const setHour = (h: number) => onChange(`${String(((h % 24) + 24) % 24).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
+  const setMin  = (m: number) => onChange(`${String(hh).padStart(2, "0")}:${String(((m % 60) + 60) % 60).padStart(2, "0")}`);
+
+  const col = (label: string, val: number, onUp: () => void, onDown: () => void) => (
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-[9px] font-bold tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>{label}</span>
+      <div className="flex flex-col items-center rounded-lg overflow-hidden" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}>
+        <button type="button" onClick={onUp}
+          className="w-12 h-7 flex items-center justify-center hover:bg-white/10 transition-colors"
+          style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
+          ▲
+        </button>
+        <div className="w-12 h-8 flex items-center justify-center font-display font-bold text-sm"
+          style={{ color: "var(--primary)", background: "rgba(255,195,0,0.1)" }}>
+          {String(val).padStart(2, "0")}
         </div>
-      ))}
+        <button type="button" onClick={onDown}
+          className="w-12 h-7 flex items-center justify-center hover:bg-white/10 transition-colors"
+          style={{ color: "var(--text-muted)", borderTop: "1px solid var(--border)" }}>
+          ▼
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex items-center gap-3 justify-center">
+      {col("HH", hh, () => setHour(hh + 1), () => setHour(hh - 1))}
+      <span className="font-bold text-lg mt-4" style={{ color: "var(--text-muted)" }}>:</span>
+      {col("MM", mm, () => setMin(mm + 1), () => setMin(mm - 1))}
     </div>
   );
 }
@@ -141,7 +137,155 @@ const STATUS_COLORS: Record<MatchStatus, string> = {
   LIVE: "badge-live", UPCOMING: "badge-upcoming", COMPLETED: "badge-completed",
 };
 const VENUE = "Parade Ground, IIEST Shibpur";
-const EMPTY_FORM = (firstTeamId = "") => ({ teamAId: firstTeamId, teamBId: firstTeamId, datetime: "2026-04-03T10:00", status: "UPCOMING" as MatchStatus, scoreA: 0, scoreB: 0 });
+
+function nowIso() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}T${String(n.getHours()).padStart(2,"0")}:00`;
+}
+
+// Reconstruct ISO from stored dateStr ("April 14") + time ("8:00 PM")
+function matchToIso(dateStr: string, time: string): string {
+  const monthIdx = MONTHS.findIndex(mo => dateStr.startsWith(mo));
+  const day = parseInt(dateStr.split(" ")[1]) || 1;
+  const year = new Date().getFullYear();
+  const [timePart, ampm] = time.trim().split(" ");
+  const [rawH, rawM] = timePart.split(":").map(Number);
+  let hh = rawH % 12;
+  if (ampm?.toUpperCase() === "PM") hh += 12;
+  return `${year}-${String(monthIdx+1).padStart(2,"0")}-${String(day).padStart(2,"0")}T${String(hh).padStart(2,"0")}:${String(rawM||0).padStart(2,"0")}`;
+}
+
+const EMPTY_FORM = (firstTeamId = "") => ({ teamAId: firstTeamId, teamBId: firstTeamId, datetime: nowIso(), status: "UPCOMING" as MatchStatus, scoreA: 0, scoreB: 0 });
+
+/* ── helpers ── */
+const emptyStats = (): MatchStats => ({
+  normalTouches: { count: 0, points: 0 },
+  diveTouches: { count: 0, points: 0 },
+  totalPoints: 0,
+  topPlayers: [
+    { id: "p1", name: "", points: 0 },
+    { id: "p2", name: "", points: 0 },
+    { id: "p3", name: "", points: 0 },
+  ],
+  innings: [0, 0],
+});
+
+function StatsModal({ match, onClose, onSaved }: { match: Match; onClose: () => void; onSaved: () => void }) {
+  const [statsA, setStatsA] = useState<MatchStats>(match.statsA ?? emptyStats());
+  const [statsB, setStatsB] = useState<MatchStats>(match.statsB ?? emptyStats());
+  const [saving, setSaving] = useState(false);
+
+  const updateStats = (
+    which: "A" | "B",
+    updater: (s: MatchStats) => MatchStats
+  ) => {
+    if (which === "A") setStatsA(s => updater(s));
+    else setStatsB(s => updater(s));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      // auto-compute derived fields
+      const finalize = (s: MatchStats): MatchStats => ({
+        ...s,
+        normalTouches: { ...s.normalTouches, points: s.normalTouches.count * 1 },
+        diveTouches: { ...s.diveTouches, points: s.diveTouches.count * 2 },
+        totalPoints: s.normalTouches.count + s.diveTouches.count * 2,
+      });
+      await api.updateStats(match.matchId || match.id, { statsA: finalize(statsA), statsB: finalize(statsB) });
+      onSaved();
+      onClose();
+    } catch (e) {
+      alert("Failed: " + (e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const TeamStatsForm = ({ label, stats, onChange }: { label: string; stats: MatchStats; onChange: (s: MatchStats) => void }) => (
+    <div className="space-y-3">
+      <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--primary)" }}>{label}</p>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: "var(--text-muted)" }}>Normal Touches (+1)</label>
+          <input type="number" min="0" className="input text-sm" value={stats.normalTouches.count}
+            onChange={e => onChange({ ...stats, normalTouches: { count: +e.target.value, points: +e.target.value } })} />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: "var(--text-muted)" }}>Dive Touches (+2)</label>
+          <input type="number" min="0" className="input text-sm" value={stats.diveTouches.count}
+            onChange={e => onChange({ ...stats, diveTouches: { count: +e.target.value, points: +e.target.value * 2 } })} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: "var(--text-muted)" }}>Inning 1 pts</label>
+          <input type="number" min="0" className="input text-sm" value={stats.innings[0]}
+            onChange={e => onChange({ ...stats, innings: [+e.target.value, stats.innings[1]] })} />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-wider mb-1 block" style={{ color: "var(--text-muted)" }}>Inning 2 pts</label>
+          <input type="number" min="0" className="input text-sm" value={stats.innings[1]}
+            onChange={e => onChange({ ...stats, innings: [stats.innings[0], +e.target.value] })} />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-[10px] uppercase tracking-wider mb-1.5 block" style={{ color: "var(--text-muted)" }}>Top Players (name + points)</label>
+        <div className="space-y-1.5">
+          {stats.topPlayers.map((p, i) => (
+            <div key={i} className="flex gap-2">
+              <input className="input text-sm flex-1" placeholder={`Player ${i + 1} name`} value={p.name}
+                onChange={e => {
+                  const tp = [...stats.topPlayers];
+                  tp[i] = { ...tp[i], name: e.target.value };
+                  onChange({ ...stats, topPlayers: tp });
+                }} />
+              <input type="number" min="0" className="input text-sm w-16" placeholder="pts" value={p.points}
+                onChange={e => {
+                  const tp = [...stats.topPlayers];
+                  tp[i] = { ...tp[i], points: +e.target.value };
+                  onChange({ ...stats, topPlayers: tp });
+                }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}>
+      <div className="card w-full max-w-2xl p-5 space-y-5 overflow-y-auto" style={{ maxHeight: "92vh" }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-display font-bold" style={{ color: "var(--text)" }}>Match Stats</h2>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              {match.teamA.name} {match.scoreA ?? 0} – {match.scoreB ?? 0} {match.teamB.name}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded hover:bg-white/10" style={{ color: "var(--text-muted)" }}><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <TeamStatsForm label={match.teamA.name} stats={statsA} onChange={setStatsA} />
+          <div className="hidden sm:block w-px" style={{ background: "var(--border)" }} />
+          <TeamStatsForm label={match.teamB.name} stats={statsB} onChange={setStatsB} />
+        </div>
+
+        <div className="flex justify-end gap-3 pt-1">
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-primary flex items-center gap-2" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save Stats"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Matches() {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -151,6 +295,7 @@ export default function Matches() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Match | null>(null);
   const [form, setForm] = useState(EMPTY_FORM());
+  const [statsTarget, setStatsTarget] = useState<Match | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -176,7 +321,7 @@ export default function Matches() {
   };
   const openEdit = (m: Match) => {
     setEditing(m);
-    setForm({ teamAId: m.teamA.id, teamBId: m.teamB.id, datetime: "2026-04-03T10:00", status: m.status, scoreA: m.scoreA ?? 0, scoreB: m.scoreB ?? 0 });
+    setForm({ teamAId: m.teamA.id, teamBId: m.teamB.id, datetime: matchToIso(m.dateStr, m.time), status: m.status, scoreA: m.scoreA ?? 0, scoreB: m.scoreB ?? 0 });
     setShowModal(true);
   };
 
@@ -272,6 +417,11 @@ export default function Matches() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
+                      {m.status === "COMPLETED" && (
+                        <button onClick={() => setStatsTarget(m)} className="p-1.5 rounded hover:bg-white/10 transition-colors" style={{ color: "var(--text-muted)" }} title="Edit Stats">
+                          <BarChart2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button onClick={() => openEdit(m)} className="p-1.5 rounded hover:bg-white/10 transition-colors" style={{ color: "var(--text-muted)" }}><Pencil className="w-3.5 h-3.5" /></button>
                       <button onClick={() => remove(m)} className="p-1.5 rounded hover:bg-red-500/10 transition-colors text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
@@ -284,7 +434,16 @@ export default function Matches() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Stats Modal */}
+      {statsTarget && (
+        <StatsModal
+          match={statsTarget}
+          onClose={() => setStatsTarget(null)}
+          onSaved={load}
+        />
+      )}
+
+      {/* Edit/Create Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}>
           <div className="card w-full max-w-xl p-5 space-y-4 overflow-y-auto" style={{ maxHeight: "92vh" }}>

@@ -22,6 +22,8 @@ export interface MatchStats {
   innings: [number, number];
 }
 
+export type VictoryType = "POINTS" | "TIME";
+
 export interface Match {
   id: string;
   matchId?: string;
@@ -36,6 +38,9 @@ export interface Match {
   inning?: number;
   inning1ScoreA?: number;
   inning1ScoreB?: number;
+  inningBreak?: boolean;
+  victoryType?: VictoryType;    // how the match was decided
+  winMarginSeconds?: number;    // set when victoryType === "TIME"
   statsA?: MatchStats;
   statsB?: MatchStats;
 }

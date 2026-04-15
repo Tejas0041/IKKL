@@ -3,9 +3,26 @@ import { motion } from "framer-motion";
 import { Crown } from "lucide-react";
 import { clsx } from "clsx";
 import { fetchMatches } from "@/lib/api";
+import { DotsLoader, TableRowSkeleton } from "@/components/ui/DotsLoader";
+import { PageBg } from "@/components/layout/PageBg";
 import type { Match } from "@/lib/types";
 
 interface TeamRow { team: { id: string; name: string; shortName: string; color: string }; played: number; won: number; lost: number; pts: number; nrr: number; }
+
+function computeNRRDelta(m: Match): number {
+  // No victoryType = old match with unknown data → 0 NRR contribution
+  if (!m.victoryType) return 0;
+
+  if (m.victoryType === "POINTS") {
+    // Won by points: margin / 10
+    const margin = Math.abs((m.scoreA ?? 0) - (m.scoreB ?? 0));
+    return margin / 10;
+  }
+
+  // Won by TIME: 0.1 per 10 seconds = 0.6 per minute
+  // winMarginSeconds is the time remaining when the match ended
+  return (m.winMarginSeconds ?? 0) / 100;
+}
 
 function computeTable(matches: Match[]): TeamRow[] {
   const base: Record<string, TeamRow> = {};
@@ -15,16 +32,19 @@ function computeTable(matches: Match[]): TeamRow[] {
       if (!base[t.id]) base[t.id] = { team: t, played: 0, won: 0, lost: 0, pts: 0, nrr: 0 };
     });
     if (m.status !== "COMPLETED" || m.scoreA === undefined || m.scoreB === undefined) return;
-    const margin = Math.abs(m.scoreA - m.scoreB);
-    const delta = margin / 10;
+
+    const delta = computeNRRDelta(m);
     const winA = m.scoreA > m.scoreB;
-    base[m.teamA.id].played++; base[m.teamB.id].played++;
+
+    base[m.teamA.id].played++;
+    base[m.teamB.id].played++;
+
     if (winA) {
-      base[m.teamA.id].won++; base[m.teamA.id].pts += 2; base[m.teamA.id].nrr += delta;
-      base[m.teamB.id].lost++;                            base[m.teamB.id].nrr -= delta;
+      base[m.teamA.id].won++;  base[m.teamA.id].pts += 2; base[m.teamA.id].nrr += delta;
+      base[m.teamB.id].lost++;                             base[m.teamB.id].nrr -= delta;
     } else {
-      base[m.teamB.id].won++; base[m.teamB.id].pts += 2; base[m.teamB.id].nrr += delta;
-      base[m.teamA.id].lost++;                            base[m.teamA.id].nrr -= delta;
+      base[m.teamB.id].won++;  base[m.teamB.id].pts += 2; base[m.teamB.id].nrr += delta;
+      base[m.teamA.id].lost++;                             base[m.teamA.id].nrr -= delta;
     }
   });
 
@@ -35,8 +55,34 @@ function computeTable(matches: Match[]): TeamRow[] {
 
 export default function PointsTable() {
   const [table, setTable] = useState<TeamRow[]>([]);
-  useEffect(() => { fetchMatches().then(m => setTable(computeTable(m))); }, []);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetchMatches().then(m => { setTable(computeTable(m)); setLoading(false); });
+  }, []);
   const TABLE = table;
+
+  if (loading) return (
+    <div className="min-h-screen pt-20 sm:pt-24 pb-20 relative">
+      <PageBg />
+      <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-10 sm:mb-14">
+          <p className="text-xs font-bold tracking-[0.3em] text-primary/60 uppercase mb-3 sm:mb-4">IKKL 1.0 · Season 2026</p>
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-display font-bold text-white mb-2">POINTS TABLE</h1>
+          <div className="w-24 h-0.5 mx-auto mt-4 sm:mt-5" style={{ background: "linear-gradient(90deg,transparent,#ffc300,transparent)" }} />
+        </div>
+        <div className="rounded-2xl overflow-hidden" style={{ background: "linear-gradient(160deg,rgba(0,29,61,0.6),rgba(0,8,20,0.8))", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <div className="grid px-3 sm:px-5 py-2.5 sm:py-3 border-b"
+            style={{ gridTemplateColumns: "2rem 1fr 2.5rem 2.5rem 4rem 2.5rem", gap: "0.25rem", borderColor: "rgba(255,255,255,0.06)", background: "rgba(0,53,102,0.25)" }}>
+            {["#","Team","W","L","NRR","Pts"].map(h => (
+              <div key={h} className="text-[10px] font-bold tracking-widest text-white/35 uppercase text-center first:text-left">{h}</div>
+            ))}
+          </div>
+          {Array.from({ length: 5 }).map((_, i) => <TableRowSkeleton key={i} i={i} />)}
+        </div>
+        <div className="flex justify-center mt-10"><DotsLoader variant="inline" /></div>
+      </div>
+    </div>
+  );
 
   if (TABLE.length === 0) return (
     <div className="min-h-screen pt-20 sm:pt-24 flex items-center justify-center">
@@ -45,8 +91,9 @@ export default function PointsTable() {
   );
 
   return (
-    <div className="min-h-screen pt-20 sm:pt-24 pb-20 sm:pb-24">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen pt-20 sm:pt-24 pb-20 sm:pb-24 relative">
+      <PageBg />
+      <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Header */}
         <div className="text-center mb-10 sm:mb-14">
@@ -181,11 +228,9 @@ export default function PointsTable() {
             <div className="rounded-lg px-3 py-2.5" style={{ background: "rgba(0,29,61,0.5)", border: "1px solid rgba(255,195,0,0.15)" }}>
               <p className="text-[10px] font-bold text-primary/70 uppercase tracking-wider mb-1.5">NRR Formula</p>
               <div className="flex flex-col gap-1 text-xs text-white/55">
-                <span>Winner NRR <span className="text-green-400 font-mono">+= margin ÷ 10</span></span>
-                <span>Loser NRR <span className="text-red-400 font-mono">−= margin ÷ 10</span></span>
-                <span className="text-white/30 text-[11px] pt-1 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                  e.g. A 34 – B 21 → margin 13 → A <span className="text-green-400">+1.30</span>, B <span className="text-red-400">−1.30</span>
-                </span>
+                <span>Win by points → <span className="text-green-400 font-mono">±margin ÷ 10</span></span>
+                <span>Win by time → <span className="text-green-400 font-mono">±seconds ÷ 100</span> <span className="text-white/30">(0.1 per 10s)</span></span>
+                <span>Old match (no data) → <span className="text-white/40 font-mono">NRR = 0</span></span>
               </div>
             </div>
           </div>

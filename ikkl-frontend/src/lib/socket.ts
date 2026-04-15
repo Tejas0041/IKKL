@@ -28,3 +28,9 @@ export interface TimerUpdate {
   running: boolean;
   visible: boolean;
 }
+
+export interface BreakUpdate {
+  matchId: string;
+  seconds: number;
+  running: boolean;
+}

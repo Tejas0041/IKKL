@@ -5,13 +5,16 @@ import { fetchMatches } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 import { MatchCard } from "@/components/ui/MatchCard";
 import { TeamBadge } from "@/components/ui/TeamBadge";
-import { Activity, MapPin } from "lucide-react";
+import { DotsLoader, MatchCardSkeleton } from "@/components/ui/DotsLoader";
+import { PageBg } from "@/components/layout/PageBg";
+import { Activity, MapPin, Maximize2 } from "lucide-react";
 import type { Match } from "@/lib/types";
 
 export default function Scores() {
   const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const load = () => fetchMatches().then(setMatches);
+  const load = () => fetchMatches().then(m => { setMatches(m); setLoading(false); });
   useEffect(() => { load(); }, []);
 
   // Real-time: reload on any score change
@@ -25,15 +28,25 @@ export default function Scores() {
   const completedMatches = matches.filter(m => m.status === "COMPLETED");
 
   return (
-    <div className="min-h-screen pt-20 sm:pt-24 pb-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen pt-20 sm:pt-24 pb-20 relative">
+      <PageBg />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8 sm:mb-10">
           <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white">
             Live Scores <span className="text-primary">&amp;</span> Results
           </h1>
         </div>
 
-        {liveMatch && (
+        {loading && (
+          <div className="mb-12 sm:mb-16 rounded-2xl sm:rounded-3xl overflow-hidden animate-pulse"
+            style={{ background: "linear-gradient(155deg,rgba(4,20,50,0.7),rgba(0,6,18,0.85))", border: "1px solid rgba(255,255,255,0.05)", height: 200 }}>
+            <div className="flex items-center justify-center h-full">
+              <DotsLoader variant="inline" />
+            </div>
+          </div>
+        )}
+
+        {!loading && liveMatch && (
           <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="mb-12 sm:mb-16">
             <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden"
               style={{ background: "linear-gradient(155deg,rgba(4,20,50,0.95),rgba(0,6,18,0.98))", border: "1px solid rgba(239,68,68,0.35)", boxShadow: "0 0 60px rgba(239,68,68,0.08)" }}>
@@ -45,9 +58,18 @@ export default function Scores() {
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
                   <span className="font-display font-bold tracking-widest text-red-400 uppercase text-xs sm:text-sm">Live Now</span>
                 </div>
-                <div className="flex items-center gap-2 text-white/50 text-xs sm:text-sm">
-                  <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <span>{liveMatch.venue}</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-white/50 text-xs sm:text-sm">
+                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span>{liveMatch.venue}</span>
+                  </div>
+                  <Link href={`/scorecard/${liveMatch.matchId || liveMatch.id}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105"
+                    style={{ background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", color: "#f87171" }}>
+                    <Maximize2 className="w-3 h-3" />
+                    <span className="hidden sm:inline">Full Scorecard</span>
+                    <span className="sm:hidden">Scorecard</span>
+                  </Link>
                 </div>
               </div>
 
@@ -90,7 +112,11 @@ export default function Scores() {
             <h2 className="text-2xl sm:text-3xl font-display font-bold text-white">Recent Results</h2>
             <div className="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent" />
           </div>
-          {completedMatches.length === 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {Array.from({ length: 3 }).map((_, i) => <MatchCardSkeleton key={i} />)}
+            </div>
+          ) : completedMatches.length === 0 ? (
             <div className="py-10 text-center rounded-2xl" style={{ background: "rgba(0,29,61,0.3)", border: "1px solid rgba(255,255,255,0.06)" }}>
               <p className="text-white/40 text-sm">No completed matches yet.</p>
             </div>
