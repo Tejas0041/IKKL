@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "wouter";
-import { ChevronLeft, Flag, Award, Flame, CheckCircle2, Activity } from "lucide-react";
+import { ChevronLeft, Flag, Award, Flame, CheckCircle2, Activity, Clock } from "lucide-react";
 import { fetchMatch, fetchTimer, fetchBreakTimer } from "@/lib/api";
 import { getSocket, type ScoreUpdate, type TimerUpdate, type BreakUpdate } from "@/lib/socket";
 import { setFullscreen } from "@/lib/fullscreen";
@@ -10,7 +10,7 @@ import { TeamBadge } from "@/components/ui/TeamBadge";
 import { DotsLoader } from "@/components/ui/DotsLoader";
 import { PageBg } from "@/components/layout/PageBg";
 import { victoryMarginStr } from "@/lib/utils";
-import type { Match } from "@/lib/types";
+import type { Match, ScoreHistoryEntry } from "@/lib/types";
 
 export default function Scorecard() {
   const params = useParams<{ matchId: string }>();
@@ -18,6 +18,7 @@ export default function Scorecard() {
   const [loading, setLoading] = useState(true);
   const [scoreToast, setScoreToast] = useState<ScoreUpdate | null>(null);
   const [timer, setTimer] = useState<TimerUpdate | null>(null);
+  const [history, setHistory] = useState<ScoreHistoryEntry[]>([]);
 
   // Break timer — simple state, driven entirely by socket
   const [breakSeconds, setBreakSeconds] = useState(5 * 60);
@@ -101,7 +102,11 @@ export default function Scorecard() {
   // Fetch match
   useEffect(() => {
     if (!params.matchId) return;
-    fetchMatch(params.matchId).then(m => setMatch(m as Match)).catch(() => setMatch(null)).finally(() => setLoading(false));
+    fetchMatch(params.matchId).then(m => {
+      const match = m as Match;
+      setMatch(match);
+      setHistory(match.scoreHistory ?? []);
+    }).catch(() => setMatch(null)).finally(() => setLoading(false));
   }, [params.matchId]);
 
   // Socket
@@ -117,7 +122,14 @@ export default function Scorecard() {
     });
     socket.on("scores:changed", () => {
       if (!params.matchId) return;
-      fetchMatch(params.matchId).then(m => setMatch(m as Match)).catch(() => {});
+      fetchMatch(params.matchId).then(m => {
+        const match = m as Match;
+        setMatch(match);
+        setHistory(match.scoreHistory ?? []);
+      }).catch(() => {});
+    });
+    socket.on("history:update", (h: ScoreHistoryEntry[]) => {
+      setHistory(h);
     });
     socket.on("timer:update", (update: TimerUpdate) => {
       const wasRunning = timerRunningRef.current;
@@ -139,8 +151,10 @@ export default function Scorecard() {
     return () => {
       socket.emit("leave:match", params.matchId);
       socket.off("score:update");
+      socket.off("scores:changed");
       socket.off("timer:update");
       socket.off("break:update");
+      socket.off("history:update");
     };
   }, [params.matchId]);
 
@@ -214,25 +228,29 @@ export default function Scorecard() {
             <div className="absolute inset-0 pointer-events-none"
               style={{ background: "radial-gradient(ellipse at 50% 0%,rgba(59,130,246,0.12),transparent 65%)" }} />
             <div className="relative z-10 text-center">
-              <p className="text-xs font-bold tracking-[0.3em] uppercase mb-3" style={{ color: "rgba(96,165,250,0.7)" }}>Half Time</p>
+              <p className="text-xs font-bold tracking-[0.3em] uppercase mb-3" style={{ color: "rgba(96,165,250,0.7)" }}>
+                {match.matchType === "final" ? "🏆 Final" : "Half Time"}
+              </p>
               <h2 className="text-5xl sm:text-7xl font-display font-black text-white mb-2"
                 style={{ textShadow: "0 0 40px rgba(59,130,246,0.5)" }}>INNING BREAK</h2>
-              <p className="text-white/40 text-sm">Inning 2 starts soon</p>
+              <p className="text-white/40 text-sm">
+                Inning {match.inning ?? 1} starts soon
+              </p>
             </div>
-            {/* Inning 1 scores */}
+            {/* Score snapshot at break */}
             <div className="relative z-10 flex items-center gap-6 px-8 py-4 rounded-2xl"
               style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
               <div className="text-center">
                 <p className="text-xs text-white/40 uppercase tracking-widest mb-1">{match.teamA.shortName}</p>
-                <p className="font-display font-black text-4xl text-white">{match.inning1ScoreA ?? 0}</p>
+                <p className="font-display font-black text-4xl text-white">{match.scoreA ?? 0}</p>
               </div>
               <div className="text-center">
-                <p className="text-[10px] text-white/25 uppercase tracking-widest">Inning 1</p>
+                <p className="text-[10px] text-white/25 uppercase tracking-widest">After Inning {(match.inning ?? 2) - 1}</p>
                 <p className="text-white/20 font-bold text-xl">–</p>
               </div>
               <div className="text-center">
                 <p className="text-xs text-white/40 uppercase tracking-widest mb-1">{match.teamB.shortName}</p>
-                <p className="font-display font-black text-4xl text-white">{match.inning1ScoreB ?? 0}</p>
+                <p className="font-display font-black text-4xl text-white">{match.scoreB ?? 0}</p>
               </div>
             </div>
             {/* Break countdown */}
@@ -263,10 +281,16 @@ export default function Scorecard() {
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
               {match.dateStr} · {match.venue}
             </span>
+            {match.matchType === "final" && (
+              <span className="px-4 py-1.5 rounded-full text-xs font-black tracking-widest uppercase"
+                style={{ background: "linear-gradient(90deg,rgba(255,195,0,0.25),rgba(255,150,0,0.25))", border: "1px solid rgba(255,195,0,0.6)", color: "var(--primary)", letterSpacing: "0.2em" }}>
+                🏆 Final
+              </span>
+            )}
             {isLive && (
               <span className="px-3 py-1 rounded-full text-xs font-bold"
                 style={{ background: "rgba(255,195,0,0.12)", border: "1px solid rgba(255,195,0,0.3)", color: "rgba(255,195,0,0.9)" }}>
-                Inning {match.inning ?? 1} of 2
+                Inning {match.inning ?? 1} of {match.matchType === "final" ? 4 : 2}
               </span>
             )}
           </div>
@@ -393,10 +417,10 @@ export default function Scorecard() {
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                 {[
-                  { label: "Inning 1", sub: `${teamA.shortName} Attacks`, val: match.statsA.innings[0] },
-                  { label: "Inning 2", sub: `${teamB.shortName} Attacks`, val: match.statsB.innings[0] },
-                  { label: "Inning 3", sub: `${teamA.shortName} Attacks`, val: match.statsA.innings[1] },
-                  { label: "Inning 4", sub: `${teamB.shortName} Attacks`, val: match.statsB.innings[1] },
+                  { label: "Inning 1", sub: `${teamA.shortName} Attacks`, val: match.statsA?.innings[0] ?? 0 },
+                  { label: "Inning 2", sub: `${teamB.shortName} Attacks`, val: match.statsB?.innings[0] ?? 0 },
+                  { label: "Inning 3", sub: `${teamA.shortName} Attacks`, val: match.statsA?.innings[1] ?? 0 },
+                  { label: "Inning 4", sub: `${teamB.shortName} Attacks`, val: match.statsB?.innings[1] ?? 0 },
                 ].map(({ label, sub, val }) => (
                   <div key={label} className="p-3 sm:p-4 rounded-xl text-center" style={{ background: "rgba(0,8,20,0.6)", border: "1px solid rgba(0,53,102,0.6)" }}>
                     <p className="text-[10px] text-white/40 uppercase tracking-widest mb-1 sm:mb-2">{label}</p>
@@ -413,6 +437,52 @@ export default function Scorecard() {
             <Activity className="w-10 h-10 text-red-400/40 mx-auto mb-3" />
             <p className="text-white/40 text-sm">Detailed stats will be available after the match ends.</p>
           </div>
+        )}
+
+        {/* ── Score History (live only) ── */}
+        {isLive && history.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="p-5 sm:p-6 rounded-2xl"
+            style={{ background: "linear-gradient(155deg,rgba(4,20,50,0.8),rgba(0,6,18,0.95))", border: "1px solid rgba(0,53,102,0.6)" }}>
+            <h3 className="text-base sm:text-lg font-display font-bold text-white mb-4 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary" /> Score History
+            </h3>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {[...history].reverse().map((entry, i) => {
+                const isA = entry.team === "A";
+                const teamColor = isA ? teamA.color : teamB.color;
+                const teamName = entry.teamName ?? (isA ? teamA.name : teamB.name);
+                const isDive = entry.category === "dive";
+                const timerStr = entry.timerSeconds != null
+                  ? `${String(Math.floor(entry.timerSeconds / 60)).padStart(2, "0")}:${String(entry.timerSeconds % 60).padStart(2, "0")} remaining`
+                  : null;
+                return (
+                  <div key={entry._id ?? i}
+                    className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl"
+                    style={{ background: i === 0 ? "rgba(255,195,0,0.06)" : "rgba(255,255,255,0.02)", border: `1px solid ${i === 0 ? "rgba(255,195,0,0.2)" : "rgba(0,53,102,0.4)"}` }}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: teamColor }} />
+                      <span className="text-sm font-bold text-white truncate">{teamName}</span>
+                      <span className={clsx("text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0",
+                        isDive ? "text-orange-400" : "text-primary/90")}
+                        style={{ background: isDive ? "rgba(249,115,22,0.15)" : "rgba(255,195,0,0.1)" }}>
+                        {isDive ? "🔥 Dive" : "✓ Normal"}
+                      </span>
+                      <span className="text-[10px] text-white/30 shrink-0">Inn.{entry.inning ?? 1}</span>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {timerStr && (
+                        <span className="text-[10px] text-white/30 hidden sm:block">{timerStr}</span>
+                      )}
+                      <span className={clsx("font-display font-black text-lg", isDive ? "text-orange-400" : "text-primary")}>
+                        +{entry.points ?? 1}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
         )}
       </div>
     </div>

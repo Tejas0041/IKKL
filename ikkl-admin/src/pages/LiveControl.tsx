@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { Match, VictoryType } from "@/lib/types";
-import { Activity, CheckCircle, Play, Pause, RotateCcw, Eye, EyeOff, Clock, Trophy, RefreshCw } from "lucide-react";
+import type { Match, VictoryType, ScoreHistoryEntry } from "@/lib/types";
+import { Activity, CheckCircle, Play, Pause, RotateCcw, Eye, EyeOff, Clock, Trophy, RefreshCw, Undo2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getSocket } from "@/lib/socket";
 import { AdminLoader } from "@/components/AdminLoader";
@@ -149,8 +149,13 @@ function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel
 }
 
 /* ── Timer panel for a match ── */
-function TimerPanel({ matchId }: { matchId: string }) {
+function TimerPanel({ matchId, onSecondsChange }: { matchId: string; onSecondsChange?: (s: number) => void }) {
   const [display, setDisplay] = useState({ seconds: DEFAULT_SECONDS, ms: 0 });
+
+  const updateDisplay = (val: { seconds: number; ms: number }) => {
+    setDisplay(val);
+    onSecondsChange?.(val.seconds);
+  };
   const [running, setRunning] = useState(false);
   const [visible, setVisible] = useState(true);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -164,14 +169,13 @@ function TimerPanel({ matchId }: { matchId: string }) {
   useEffect(() => {
     api.getTimer(matchId).then(t => {
       let ms = t.remainingMs;
-      // If it was running when saved, compute drift
       if (t.running && t.savedAt) {
         const drift = Date.now() - t.savedAt;
         ms = Math.max(0, t.remainingMs - drift);
       }
       remainingMsRef.current = ms;
       setVisible(t.visible);
-      setDisplay({ seconds: Math.floor(ms / 1000), ms: Math.floor((ms % 1000) / 10) });
+      updateDisplay({ seconds: Math.floor(ms / 1000), ms: Math.floor((ms % 1000) / 10) });
       // Don't auto-resume — admin must press play
     }).catch(() => {});
   }, [matchId]);
@@ -190,7 +194,7 @@ function TimerPanel({ matchId }: { matchId: string }) {
   const tick = () => {
     const elapsed = performance.now() - startTimeRef.current;
     const left = Math.max(0, remainingMsRef.current - elapsed);
-    setDisplay({ seconds: Math.floor(left / 1000), ms: Math.floor((left % 1000) / 10) });
+    updateDisplay({ seconds: Math.floor(left / 1000), ms: Math.floor((left % 1000) / 10) });
     if (left <= 0) {
       remainingMsRef.current = 0;
       setRunning(false);
@@ -216,7 +220,7 @@ function TimerPanel({ matchId }: { matchId: string }) {
         const left = remainingMsRef.current;
         const s = Math.floor(left / 1000);
         const ms = Math.floor((left % 1000) / 10);
-        setDisplay({ seconds: s, ms });
+        updateDisplay({ seconds: s, ms });
         emit(s, ms, false, visible);
         saveToDb(left, false, visible);
       }
@@ -242,7 +246,7 @@ function TimerPanel({ matchId }: { matchId: string }) {
     setRunning(false);
     remainingMsRef.current = DEFAULT_SECONDS * 1000;
     startTimeRef.current = 0;
-    setDisplay({ seconds: DEFAULT_SECONDS, ms: 0 });
+    updateDisplay({ seconds: DEFAULT_SECONDS, ms: 0 });
     emit(DEFAULT_SECONDS, 0, false, visible);
     saveToDb(DEFAULT_SECONDS * 1000, false, visible);
     setShowConfirm(false);
@@ -263,7 +267,7 @@ function TimerPanel({ matchId }: { matchId: string }) {
       remainingMsRef.current = ms;
       const s = Math.floor(ms / 1000);
       const msVal = Math.floor((ms % 1000) / 10);
-      setDisplay({ seconds: s, ms: msVal });
+      updateDisplay({ seconds: s, ms: msVal });
       setRunning(t.running);
       setVisible(t.visible);
       emit(s, msVal, t.running, t.visible);
@@ -291,7 +295,7 @@ function TimerPanel({ matchId }: { matchId: string }) {
     remainingMsRef.current = newMs;
     startTimeRef.current = 0;
     const newS = Math.floor(newMs / 1000);
-    setDisplay({ seconds: newS, ms: 0 });
+    updateDisplay({ seconds: newS, ms: 0 });
     emit(newS, 0, running, visible);
     saveToDb(newMs, running, visible);
   };
@@ -375,7 +379,7 @@ function TimerPanel({ matchId }: { matchId: string }) {
 /* ── Break timer panel ── */
 const DEFAULT_BREAK_SECONDS = 5 * 60;
 
-function BreakPanel({ matchId, load }: { matchId: string; load: () => void }) {
+function BreakPanel({ matchId, match, load }: { matchId: string; match: Match; load: () => void }) {
   const [display, setDisplay] = useState({ seconds: DEFAULT_BREAK_SECONDS });
   const [running, setRunning] = useState(false);
   const [durationMins, setDurationMins] = useState(5);
@@ -477,9 +481,23 @@ function BreakPanel({ matchId, load }: { matchId: string; load: () => void }) {
     cancelAnimationFrame(rafRef.current);
     setRunning(false);
     emitBreak(0, false);
-    await api.endInning(matchId, "start_inning2");
+    const inning = match.inning ?? 1;
+    const isFinal = match.matchType === "final";
+    // Determine which inning we're starting next
+    let action: Parameters<typeof api.endInning>[1] = "start_inning2";
+    let nextLabel = "Inning 2";
+    if (isFinal && inning === 2) { action = "start_inning3"; nextLabel = "Inning 3"; }
+    else if (isFinal && inning === 3) { action = "start_inning4"; nextLabel = "Inning 4"; }
+    await api.endInning(matchId, action);
     load();
+    void nextLabel;
   };
+
+  const inning = match.inning ?? 1;
+  const isFinal = match.matchType === "final";
+  let nextInningLabel = "Inning 2";
+  if (isFinal && inning === 2) nextInningLabel = "Inning 3";
+  else if (isFinal && inning === 3) nextInningLabel = "Inning 4";
 
   const color = display.seconds < 60 ? "#ef4444" : display.seconds < 120 ? "#f97316" : "#60a5fa";
 
@@ -490,7 +508,7 @@ function BreakPanel({ matchId, load }: { matchId: string; load: () => void }) {
         <button onClick={endBreak}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold"
           style={{ background: "rgba(59,130,246,0.2)", border: "1px solid rgba(59,130,246,0.4)", color: "#60a5fa" }}>
-          End Break → Start Inning 2
+          End Break → Start {nextInningLabel}
         </button>
       </div>
 
@@ -607,38 +625,139 @@ function ScoreBtn({ label, color, borderColor, textColor, onClick }: {
   );
 }
 
+/* ── Score History Panel ── */
+function fmtTimer(s: number | null | undefined) {
+  if (s == null) return "–";
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")} remaining`;
+}
+
+function ScoreHistoryPanel({ history, match, onUndo }: {
+  history: ScoreHistoryEntry[];
+  match: Match;
+  onUndo: () => void;
+}) {
+  const [undoing, setUndoing] = useState(false);
+
+  const handle = async () => {
+    setUndoing(true);
+    await onUndo();
+    setUndoing(false);
+  };
+
+  return (
+    <div className="mt-5 pt-5 border-t" style={{ borderColor: "var(--border)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-bold tracking-widest uppercase" style={{ color: "var(--text-muted)" }}>
+          Score History
+        </span>
+        {history.length > 0 && (
+          <button onClick={handle} disabled={undoing}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors"
+            style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444" }}>
+            <Undo2 className="w-3 h-3" />
+            {undoing ? "Undoing…" : "Undo Last"}
+          </button>
+        )}
+      </div>
+
+      {history.length === 0 ? (
+        <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>No points scored yet</p>
+      ) : (
+        <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+          {[...history].reverse().map((entry, i) => {
+            const isA = entry.team === "A";
+            const teamColor = isA ? match.teamA.color : match.teamB.color;
+            const isDive = entry.category === "dive";
+            return (
+              <div key={entry._id ?? i}
+                className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg"
+                style={{ background: i === 0 ? "rgba(255,195,0,0.06)" : "rgba(255,255,255,0.02)", border: `1px solid ${i === 0 ? "rgba(255,195,0,0.15)" : "var(--border)"}` }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  {/* Team dot */}
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: teamColor }} />
+                  <span className="text-xs font-bold truncate" style={{ color: "var(--text)" }}>
+                    {entry.teamName ?? (isA ? match.teamA.name : match.teamB.name)}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0"
+                    style={isDive
+                      ? { background: "rgba(249,115,22,0.15)", color: "#f97316" }
+                      : { background: "rgba(255,195,0,0.1)", color: "var(--primary)" }}>
+                    {isDive ? "Dive" : "Normal"}
+                  </span>
+                  <span className="text-[10px] shrink-0" style={{ color: "var(--text-muted)" }}>
+                    Inn.{entry.inning ?? 1}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    {fmtTimer(entry.timerSeconds)}
+                  </span>
+                  <span className="font-display font-black text-base" style={{ color: isDive ? "#f97316" : "var(--primary)" }}>
+                    +{entry.points ?? 1}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Main page ── */
 export default function LiveControl() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [endMatchTarget, setEndMatchTarget] = useState<Match | null>(null);
   const [timerSecondsMap, setTimerSecondsMap] = useState<Record<string, number>>({});
+  const [historyMap, setHistoryMap] = useState<Record<string, ScoreHistoryEntry[]>>({});
 
-  const load = () => api.getMatches().then(d => { setMatches(d as Match[]); setLoading(false); }).catch(() => setLoading(false));
+  const load = () => api.getMatches().then(d => {
+    const ms = d as Match[];
+    setMatches(ms);
+    setLoading(false);
+    // load history for live matches
+    ms.filter(m => m.status === "LIVE").forEach(m => {
+      const mid = m.matchId || m.id;
+      api.getHistory(mid).then(h => setHistoryMap(prev => ({ ...prev, [mid]: h as ScoreHistoryEntry[] }))).catch(() => {});
+    });
+  }).catch(() => setLoading(false));
+
   useEffect(() => { load(); }, []);
+
+  // Socket: listen for history updates per match
+  useEffect(() => {
+    const socket = getSocket();
+    // history:update is emitted to match room with the array directly
+    // We track which matches we've joined via the room join in TimerPanel
+    // Re-fetch history on scores:changed as fallback
+    socket.on("scores:changed", () => load());
+    return () => { socket.off("scores:changed"); };
+  }, []);
 
   const liveMatches = matches.filter(m => m.status === "LIVE");
   const upcoming = matches.filter(m => m.status === "UPCOMING");
 
   const adjustScore = async (m: Match, team: "A" | "B", delta: number) => {
+    const mid = m.matchId || m.id;
     const scoreA = Math.max(0, (m.scoreA ?? 0) + (team === "A" ? delta : 0));
     const scoreB = Math.max(0, (m.scoreB ?? 0) + (team === "B" ? delta : 0));
-    await api.updateScore(m.matchId || m.id, {
+    await api.updateScore(mid, {
       scoreA, scoreB, status: "LIVE",
       scoringTeam: team, points: delta,
       category: delta === 2 ? "dive" : "normal",
       teamName: team === "A" ? m.teamA.name : m.teamB.name,
+      timerSeconds: timerSecondsMap[mid] ?? undefined,
     });
     load();
   };
 
-  const setLive = async (m: Match) => {
-    await api.updateScore(m.matchId || m.id, { scoreA: 0, scoreB: 0, status: "LIVE" });
-    load();
-  };
-
-  const endMatch = async (m: Match) => {
-    await api.updateScore(m.matchId || m.id, { scoreA: m.scoreA ?? 0, scoreB: m.scoreB ?? 0, status: "COMPLETED" });
+  const undoScore = async (m: Match) => {
+    const mid = m.matchId || m.id;
+    await api.undoScore(mid);
     load();
   };
 
@@ -667,41 +786,109 @@ export default function LiveControl() {
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
                   <span className="text-xs font-bold tracking-widest text-red-400 uppercase shrink-0">Live</span>
+                  {m.matchType === "final" && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold shrink-0"
+                      style={{ background: "rgba(255,195,0,0.2)", color: "var(--primary)", border: "1px solid rgba(255,195,0,0.5)" }}>
+                      🏆 Final
+                    </span>
+                  )}
                   <span className="px-2 py-0.5 rounded-full text-xs font-bold shrink-0"
                     style={{ background: "rgba(255,195,0,0.15)", color: "var(--primary)", border: "1px solid rgba(255,195,0,0.3)" }}>
-                    Inning {m.inning ?? 1}
+                    Inning {m.inning ?? 1}{m.matchType === "final" ? " of 4" : " of 2"}
                   </span>
                 </div>
-                {/* Right: action button */}
-                {(m.inning ?? 1) === 1 ? (
-                  <button onClick={async () => { await api.endInning(m.matchId || m.id, "end_inning1"); load(); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors"
-                    style={{ background: "rgba(255,195,0,0.15)", color: "var(--primary)", border: "1px solid rgba(255,195,0,0.3)" }}>
-                    End Inning 1
-                  </button>
-                ) : m.inningBreak ? (
-                  <span className="text-xs font-bold px-2 py-1 rounded-full shrink-0"
-                    style={{ background: "rgba(59,130,246,0.15)", color: "#60a5fa", border: "1px solid rgba(59,130,246,0.3)" }}>
-                    Inning Break
-                  </span>
-                ) : (
-                  <button onClick={() => {
-                    const mid = m.matchId || m.id;
-                    api.getTimer(mid).then(t => {
-                      let s = Math.floor(t.remainingMs / 1000);
-                      if (t.running && t.savedAt) s = Math.max(0, Math.floor((t.remainingMs - (Date.now() - t.savedAt)) / 1000));
-                      setTimerSecondsMap(prev => ({ ...prev, [mid]: s }));
-                      setEndMatchTarget(m);
-                    }).catch(() => { setEndMatchTarget(m); });
-                  }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors"
-                    style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }}>
-                    <CheckCircle className="w-3.5 h-3.5" /> End Match
-                  </button>
-                )}
+                {/* Right: action button — varies by match type + inning */}
+                {(() => {
+                  const inning = m.inning ?? 1;
+                  const mid = m.matchId || m.id;
+                  const isFinal = m.matchType === "final";
+
+                  if (m.inningBreak) {
+                    return (
+                      <span className="text-xs font-bold px-2 py-1 rounded-full shrink-0"
+                        style={{ background: "rgba(59,130,246,0.15)", color: "#60a5fa", border: "1px solid rgba(59,130,246,0.3)" }}>
+                        Inning Break
+                      </span>
+                    );
+                  }
+
+                  // League: inning 1 → end inning 1
+                  if (!isFinal && inning === 1) {
+                    return (
+                      <button onClick={async () => { await api.endInning(mid, "end_inning1"); load(); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors"
+                        style={{ background: "rgba(255,195,0,0.15)", color: "var(--primary)", border: "1px solid rgba(255,195,0,0.3)" }}>
+                        End Inning 1
+                      </button>
+                    );
+                  }
+
+                  // Final: inning 1 (Team A 1st) → end → break → inning 2 (Team B 1st)
+                  if (isFinal && inning === 1) {
+                    return (
+                      <button onClick={async () => { await api.endInning(mid, "end_inning1"); load(); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors"
+                        style={{ background: "rgba(255,195,0,0.15)", color: "var(--primary)", border: "1px solid rgba(255,195,0,0.3)" }}>
+                        End Inning 1
+                      </button>
+                    );
+                  }
+
+                  // Final: inning 2 (Team B 1st) → end → break → inning 3 (Team A 2nd)
+                  if (isFinal && inning === 2) {
+                    return (
+                      <button onClick={async () => { await api.endInning(mid, "end_inning2_final"); load(); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors"
+                        style={{ background: "rgba(255,195,0,0.15)", color: "var(--primary)", border: "1px solid rgba(255,195,0,0.3)" }}>
+                        End Inning 2
+                      </button>
+                    );
+                  }
+
+                  // Final: inning 3 (Team A 2nd) → end → break → inning 4 (Team B 2nd) OR end match
+                  if (isFinal && inning === 3) {
+                    return (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={async () => { await api.endInning(mid, "end_inning3_final"); load(); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors"
+                          style={{ background: "rgba(255,195,0,0.15)", color: "var(--primary)", border: "1px solid rgba(255,195,0,0.3)" }}>
+                          End Inning 3 → Inning 4
+                        </button>
+                        <button onClick={() => {
+                          api.getTimer(mid).then(t => {
+                            let s = Math.floor(t.remainingMs / 1000);
+                            if (t.running && t.savedAt) s = Math.max(0, Math.floor((t.remainingMs - (Date.now() - t.savedAt)) / 1000));
+                            setTimerSecondsMap(prev => ({ ...prev, [mid]: s }));
+                            setEndMatchTarget(m);
+                          }).catch(() => { setEndMatchTarget(m); });
+                        }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors"
+                          style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }}>
+                          <CheckCircle className="w-3.5 h-3.5" /> End Match
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  // League inning 2 or Final inning 4 → End Match
+                  return (
+                    <button onClick={() => {
+                      api.getTimer(mid).then(t => {
+                        let s = Math.floor(t.remainingMs / 1000);
+                        if (t.running && t.savedAt) s = Math.max(0, Math.floor((t.remainingMs - (Date.now() - t.savedAt)) / 1000));
+                        setTimerSecondsMap(prev => ({ ...prev, [mid]: s }));
+                        setEndMatchTarget(m);
+                      }).catch(() => { setEndMatchTarget(m); });
+                    }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors"
+                      style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }}>
+                      <CheckCircle className="w-3.5 h-3.5" /> End Match
+                    </button>
+                  );
+                })()}
               </div>
 
-              {/* Inning 1 score summary — editable during inning 2 */}
+              {/* Inning score summaries */}
               {(m.inning ?? 1) === 2 && <Inning1Editor m={m} load={load} />}
+              {m.matchType === "final" && (m.inning ?? 1) >= 3 && <Inning1Editor m={m} load={load} />}
 
               {/* ── MOBILE layout: two team rows ── */}
               <div className="flex flex-col gap-3 sm:hidden">
@@ -790,11 +977,11 @@ export default function LiveControl() {
 
               {/* Timer or Break panel */}
               {m.inningBreak
-                ? <BreakPanel matchId={m.matchId || m.id} load={load} />
+                ? <BreakPanel matchId={m.matchId || m.id} match={m} load={load} />
                 : <>
-                    <TimerPanel matchId={m.matchId || m.id} />
-                    {/* Take Break button — shown in inning 2 when not in break */}
-                    {(m.inning ?? 1) === 2 && (
+                    <TimerPanel matchId={m.matchId || m.id} onSecondsChange={s => setTimerSecondsMap(prev => ({ ...prev, [m.matchId || m.id]: s }))} />
+                    {/* Take Break button — shown in inning 2+ when not in break (league: inning 2, final: inning 2, 3, 4) */}
+                    {((m.matchType !== "final" && (m.inning ?? 1) === 2) || (m.matchType === "final" && (m.inning ?? 1) >= 2)) && (
                       <div className="mt-3">
                         <button onClick={async () => {
                           await api.updateMatch(m.matchId || m.id, { ...m, inningBreak: true });
@@ -808,6 +995,13 @@ export default function LiveControl() {
                     )}
                   </>
               }
+
+              {/* ── Score History ── */}
+              <ScoreHistoryPanel
+                history={historyMap[m.matchId || m.id] ?? (m.scoreHistory ?? [])}
+                match={m}
+                onUndo={() => undoScore(m)}
+              />
             </div>
           ))}
         </div>

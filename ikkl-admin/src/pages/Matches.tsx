@@ -155,7 +155,7 @@ function matchToIso(dateStr: string, time: string): string {
   return `${year}-${String(monthIdx+1).padStart(2,"0")}-${String(day).padStart(2,"0")}T${String(hh).padStart(2,"0")}:${String(rawM||0).padStart(2,"0")}`;
 }
 
-const EMPTY_FORM = (firstTeamId = "") => ({ teamAId: firstTeamId, teamBId: firstTeamId, datetime: nowIso(), status: "UPCOMING" as MatchStatus, scoreA: 0, scoreB: 0 });
+const EMPTY_FORM = (firstTeamId = "") => ({ teamAId: firstTeamId, teamBId: firstTeamId, datetime: nowIso(), status: "UPCOMING" as MatchStatus, matchType: "league" as "league" | "final", scoreA: 0, scoreB: 0 });
 
 /* ── helpers ── */
 const emptyStats = (): MatchStats => ({
@@ -321,7 +321,7 @@ export default function Matches() {
   };
   const openEdit = (m: Match) => {
     setEditing(m);
-    setForm({ teamAId: m.teamA.id, teamBId: m.teamB.id, datetime: matchToIso(m.dateStr, m.time), status: m.status, scoreA: m.scoreA ?? 0, scoreB: m.scoreB ?? 0 });
+    setForm({ teamAId: m.teamA.id, teamBId: m.teamB.id, datetime: matchToIso(m.dateStr, m.time), status: m.status, matchType: m.matchType ?? "league", scoreA: m.scoreA ?? 0, scoreB: m.scoreB ?? 0 });
     setShowModal(true);
   };
 
@@ -334,6 +334,7 @@ export default function Matches() {
     const payload = {
       matchId: editing?.matchId || `m${Date.now()}`,
       teamA, teamB, dateStr, time, venue: VENUE,
+      matchType: form.matchType,
       status: form.status,
       scoreA: form.scoreA,
       scoreB: form.scoreB,
@@ -384,7 +385,7 @@ export default function Matches() {
           <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface2)" }}>
-                {["Match", "Date", "Time", "Score", "Status", "Actions"].map(h => (
+                {["Match", "Type", "Date", "Time", "Score", "Status", "Actions"].map(h => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>{h}</th>
                 ))}
               </tr>
@@ -406,6 +407,14 @@ export default function Matches() {
                         {m.teamB.logo ? <img src={m.teamB.logo} alt={m.teamB.name} className="w-full h-full object-contain" /> : m.teamB.shortName}
                       </div>
                     </div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="text-xs font-bold px-2 py-1 rounded-full"
+                      style={m.matchType === "final"
+                        ? { background: "rgba(255,195,0,0.15)", color: "var(--primary)", border: "1px solid rgba(255,195,0,0.3)" }
+                        : { background: "rgba(255,255,255,0.05)", color: "var(--text-muted)", border: "1px solid var(--border)" }}>
+                      {m.matchType === "final" ? "🏆 Final" : "League"}
+                    </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{m.dateStr}</td>
                   <td className="px-4 py-3 whitespace-nowrap" style={{ color: "var(--text-muted)" }}>{m.time}</td>
@@ -475,6 +484,23 @@ export default function Matches() {
                       {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
                 }
+              </div>
+            </div>
+
+            {/* Match Type */}
+            <div>
+              <label className="text-xs font-medium mb-1.5 block" style={{ color: "var(--text-muted)" }}>Match Type</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["league", "final"] as const).map(t => (
+                  <button key={t} type="button"
+                    onClick={() => setForm(f => ({ ...f, matchType: t }))}
+                    className="py-2.5 rounded-xl text-sm font-bold capitalize transition-all"
+                    style={form.matchType === t
+                      ? { background: "rgba(255,195,0,0.2)", border: "1px solid rgba(255,195,0,0.6)", color: "var(--primary)" }
+                      : { background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                    {t === "final" ? "🏆 Final" : "⚽ League Match"}
+                  </button>
+                ))}
               </div>
             </div>
 

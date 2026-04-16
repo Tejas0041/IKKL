@@ -38,9 +38,11 @@ export const api = {
   getMatch: (id: string) => req<unknown>(`/matches/${id}`),
   createMatch: (data: unknown) => req<unknown>("/matches", { method: "POST", body: JSON.stringify(data) }),
   updateMatch: (id: string, data: unknown) => req<unknown>(`/matches/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  updateScore: (id: string, data: { scoreA: number; scoreB: number; status?: string; scoringTeam?: "A" | "B"; points?: number; category?: "normal" | "dive"; teamName?: string }) =>
+  updateScore: (id: string, data: { scoreA: number; scoreB: number; status?: string; scoringTeam?: "A" | "B"; points?: number; category?: "normal" | "dive"; teamName?: string; timerSeconds?: number }) =>
     req<unknown>(`/matches/${id}/score`, { method: "PATCH", body: JSON.stringify(data) }),
-  endInning: (id: string, action: "end_inning1" | "end_match" | "start_inning2", extra?: { victoryType?: "POINTS" | "TIME"; winMarginSeconds?: number }) =>
+  undoScore: (id: string) => req<unknown>(`/matches/${id}/score/undo`, { method: "PATCH" }),
+  getHistory: (id: string) => req<unknown[]>(`/matches/${id}/history`),
+  endInning: (id: string, action: "end_inning1" | "end_match" | "start_inning2" | "end_inning2_final" | "start_inning3" | "end_inning3_final" | "start_inning4", extra?: { victoryType?: "POINTS" | "TIME"; winMarginSeconds?: number }) =>
     req<unknown>(`/matches/${id}/inning`, { method: "PATCH", body: JSON.stringify({ action, ...extra }) }),
   updateStats: (id: string, data: { statsA?: unknown; statsB?: unknown }) =>
     req<unknown>(`/matches/${id}/stats`, { method: "PATCH", body: JSON.stringify(data) }),

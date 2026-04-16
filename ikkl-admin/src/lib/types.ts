@@ -23,6 +23,18 @@ export interface MatchStats {
 }
 
 export type VictoryType = "POINTS" | "TIME";
+export type MatchType = "league" | "final";
+
+export interface ScoreHistoryEntry {
+  _id?: string;
+  team: "A" | "B";
+  teamName?: string;
+  points?: number;
+  category?: "normal" | "dive";
+  inning?: number;
+  timerSeconds?: number | null;
+  scoredAt?: string;
+}
 
 export interface Match {
   id: string;
@@ -32,15 +44,19 @@ export interface Match {
   dateStr: string;
   time: string;
   venue: string;
+  matchType: MatchType;
   status: MatchStatus;
   scoreA?: number;
   scoreB?: number;
   inning?: number;
   inning1ScoreA?: number;
   inning1ScoreB?: number;
+  inning3ScoreA?: number;
+  inning3ScoreB?: number;
   inningBreak?: boolean;
   victoryType?: VictoryType;
   winMarginSeconds?: number;
   statsA?: MatchStats;
   statsB?: MatchStats;
+  scoreHistory?: ScoreHistoryEntry[];
 }

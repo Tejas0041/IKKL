@@ -57,27 +57,86 @@ router.put("/:matchId", async (req, res) => {
   res.json(match);
 });
 
+// Get score history
+router.get("/:matchId/history", async (req, res) => {
+  const match = await Match.findOne({ matchId: req.params.matchId });
+  if (!match) return res.status(404).json({ error: "Match not found" });
+  res.json(match.scoreHistory ?? []);
+});
+
 // Update score only
 router.patch("/:matchId/score", async (req, res) => {
-  const { scoreA, scoreB, status, scoringTeam, points, category, teamName } = req.body;
-  const match = await Match.findOneAndUpdate(
-    { matchId: req.params.matchId },
-    { $set: { scoreA, scoreB, ...(status && { status }) } },
-    { new: true }
-  );
+  const { scoreA, scoreB, status, scoringTeam, points, category, teamName, timerSeconds } = req.body;
+  const match = await Match.findOne({ matchId: req.params.matchId });
   if (!match) return res.status(404).json({ error: "Match not found" });
 
-  // Emit real-time update
+  const historyEntry = scoringTeam ? {
+    team: scoringTeam,
+    teamName: teamName || "",
+    points: points || 1,
+    category: category || "normal",
+    inning: match.inning ?? 1,
+    timerSeconds: timerSeconds ?? null,
+    scoredAt: new Date(),
+  } : null;
+
+  const updated = await Match.findOneAndUpdate(
+    { matchId: req.params.matchId },
+    {
+      $set: { scoreA, scoreB, ...(status && { status }) },
+      ...(historyEntry ? { $push: { scoreHistory: historyEntry } } : {}),
+    },
+    { new: true }
+  );
+  if (!updated) return res.status(404).json({ error: "Match not found" });
+
   if (scoringTeam) {
     emitScoreUpdate(req.params.matchId, {
-      scoreA, scoreB, status: status || match.status,
+      scoreA, scoreB, status: status || updated.status,
       scoringTeam, points: points || 1,
       category: category || "normal",
       teamName: teamName || "",
     });
+    // Broadcast updated history
+    getIO()?.to(`match:${req.params.matchId}`).emit("history:update", updated.scoreHistory);
   }
 
-  res.json(match);
+  res.json(updated);
+});
+
+// Undo last score
+router.patch("/:matchId/score/undo", async (req, res) => {
+  const match = await Match.findOne({ matchId: req.params.matchId });
+  if (!match) return res.status(404).json({ error: "Match not found" });
+
+  const history = match.scoreHistory ?? [];
+  if (history.length === 0) return res.status(400).json({ error: "No history to undo" });
+
+  const last = history[history.length - 1];
+  const newScoreA = Math.max(0, (match.scoreA ?? 0) - (last.team === "A" ? (last.points ?? 0) : 0));
+  const newScoreB = Math.max(0, (match.scoreB ?? 0) - (last.team === "B" ? (last.points ?? 0) : 0));
+
+  const updated = await Match.findOneAndUpdate(
+    { matchId: req.params.matchId },
+    {
+      $set: { scoreA: newScoreA, scoreB: newScoreB },
+      $pop: { scoreHistory: 1 },
+    },
+    { new: true }
+  );
+  if (!updated) return res.status(404).json({ error: "Match not found" });
+
+  emitScoreUpdate(req.params.matchId, {
+    scoreA: newScoreA, scoreB: newScoreB,
+    status: match.status,
+    scoringTeam: last.team as "A" | "B",
+    points: -(last.points ?? 0),
+    category: last.category as "normal" | "dive" || "normal",
+    teamName: last.teamName || "",
+  });
+  getIO()?.to(`match:${req.params.matchId}`).emit("history:update", updated.scoreHistory);
+
+  res.json(updated);
 });
 
 // End inning / declare result
@@ -85,22 +144,25 @@ router.patch("/:matchId/inning", async (req, res) => {
   const match = await Match.findOne({ matchId: req.params.matchId });
   if (!match) return res.status(404).json({ error: "Match not found" });
 
-  const { action } = req.body; // "end_inning1" | "end_match"
+  const { action } = req.body;
+  const { Settings } = await import("../models/Settings.js");
 
-  if (action === "end_inning1") {
-    // Save inning 1 snapshot, reset match timer to 7min, set inningBreak
-    await Match.findOneAndUpdate(
-      { matchId: req.params.matchId },
-      { $set: { inning: 2, inning1ScoreA: match.scoreA ?? 0, inning1ScoreB: match.scoreB ?? 0, inningBreak: true } },
-      { new: true }
-    );
-    // Reset match timer to 7 minutes
-    const { Settings } = await import("../models/Settings.js");
+  const resetTimer = async () => {
     await Settings.findOneAndUpdate(
       { key: `timer:${req.params.matchId}` },
       { value: JSON.stringify({ remainingMs: 7 * 60 * 1000, running: false, visible: true, savedAt: Date.now() }) },
       { upsert: true }
     );
+  };
+
+  // ── League: end inning 1 ──
+  if (action === "end_inning1") {
+    await Match.findOneAndUpdate(
+      { matchId: req.params.matchId },
+      { $set: { inning: 2, inning1ScoreA: match.scoreA ?? 0, inning1ScoreB: match.scoreB ?? 0, inningBreak: true } },
+      { new: true }
+    );
+    await resetTimer();
     getIO()?.emit("scores:changed");
     return res.json({ ok: true, inning: 2, inningBreak: true });
   }
@@ -115,9 +177,51 @@ router.patch("/:matchId/inning", async (req, res) => {
     return res.json({ ok: true, inningBreak: false });
   }
 
+  // ── Final only: end inning 2 (Team A's 1st) → break → inning 3 (Team B's 1st) ──
+  if (action === "end_inning2_final") {
+    await Match.findOneAndUpdate(
+      { matchId: req.params.matchId },
+      { $set: { inning: 3, inningBreak: true } },
+      { new: true }
+    );
+    await resetTimer();
+    getIO()?.emit("scores:changed");
+    return res.json({ ok: true, inning: 3, inningBreak: true });
+  }
+
+  if (action === "start_inning3") {
+    await Match.findOneAndUpdate(
+      { matchId: req.params.matchId },
+      { $set: { inningBreak: false } },
+      { new: true }
+    );
+    getIO()?.emit("scores:changed");
+    return res.json({ ok: true, inningBreak: false });
+  }
+
+  // ── Final only: end inning 3 (Team B's 1st) → break → inning 4 (Team A's 2nd) ──
+  if (action === "end_inning3_final") {
+    await Match.findOneAndUpdate(
+      { matchId: req.params.matchId },
+      { $set: { inning: 4, inning3ScoreA: match.scoreA ?? 0, inning3ScoreB: match.scoreB ?? 0, inningBreak: true } },
+      { new: true }
+    );
+    await resetTimer();
+    getIO()?.emit("scores:changed");
+    return res.json({ ok: true, inning: 4, inningBreak: true });
+  }
+
+  if (action === "start_inning4") {
+    await Match.findOneAndUpdate(
+      { matchId: req.params.matchId },
+      { $set: { inningBreak: false } },
+      { new: true }
+    );
+    getIO()?.emit("scores:changed");
+    return res.json({ ok: true, inningBreak: false });
+  }
+
   if (action === "end_match") {
-    // victoryType: "POINTS" | "TIME"
-    // winMarginSeconds: number (only relevant when victoryType === "TIME")
     const { victoryType, winMarginSeconds } = req.body;
     const updated = await Match.findOneAndUpdate(
       { matchId: req.params.matchId },
