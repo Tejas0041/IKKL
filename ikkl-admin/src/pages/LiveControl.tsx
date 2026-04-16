@@ -761,6 +761,11 @@ export default function LiveControl() {
     load();
   };
 
+  const setLive = async (m: Match) => {
+    await api.updateScore(m.matchId || m.id, { scoreA: 0, scoreB: 0, status: "LIVE" });
+    load();
+  };
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div>
