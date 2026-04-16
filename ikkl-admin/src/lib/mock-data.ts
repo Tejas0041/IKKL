@@ -12,12 +12,12 @@ export const TEAMS: Record<string, Team> = {
 };
 
 export const MOCK_MATCHES: Match[] = [
-  { id: "m1", teamA: TEAMS.THU, teamB: TEAMS.PHO, dateStr: "March 28", time: "2:00 PM", venue: "Ground A", status: "COMPLETED", scoreA: 34, scoreB: 28 },
-  { id: "m2", teamA: TEAMS.BLA, teamB: TEAMS.NIG, dateStr: "March 28", time: "4:30 PM", venue: "Ground B", status: "COMPLETED", scoreA: 41, scoreB: 35 },
-  { id: "m3", teamA: TEAMS.VEL, teamB: TEAMS.STE, dateStr: "March 29", time: "11:00 AM", venue: "Ground A", status: "COMPLETED", scoreA: 29, scoreB: 32 },
-  { id: "m4", teamA: TEAMS.CYC, teamB: TEAMS.IRO, dateStr: "March 29", time: "2:00 PM", venue: "Ground B", status: "LIVE", scoreA: 21, scoreB: 18 },
-  { id: "m5", teamA: TEAMS.THU, teamB: TEAMS.BLA, dateStr: "March 29", time: "4:30 PM", venue: "Ground A", status: "UPCOMING" },
-  { id: "m6", teamA: TEAMS.PHO, teamB: TEAMS.NIG, dateStr: "March 30", time: "10:00 AM", venue: "Ground B", status: "UPCOMING" },
-  { id: "m7", teamA: TEAMS.STE, teamB: TEAMS.CYC, dateStr: "March 30", time: "2:00 PM", venue: "Ground A", status: "UPCOMING" },
-  { id: "m8", teamA: TEAMS.IRO, teamB: TEAMS.VEL, dateStr: "March 30", time: "4:00 PM", venue: "Ground B", status: "UPCOMING" },
+  { id: "m1", teamA: TEAMS.THU, teamB: TEAMS.PHO, dateStr: "March 28", time: "2:00 PM", venue: "Ground A", status: "COMPLETED", matchType: "league", scoreA: 34, scoreB: 28 },
+  { id: "m2", teamA: TEAMS.BLA, teamB: TEAMS.NIG, dateStr: "March 28", time: "4:30 PM", venue: "Ground B", status: "COMPLETED", matchType: "league", scoreA: 41, scoreB: 35 },
+  { id: "m3", teamA: TEAMS.VEL, teamB: TEAMS.STE, dateStr: "March 29", time: "11:00 AM", venue: "Ground A", status: "COMPLETED", matchType: "league", scoreA: 29, scoreB: 32 },
+  { id: "m4", teamA: TEAMS.CYC, teamB: TEAMS.IRO, dateStr: "March 29", time: "2:00 PM", venue: "Ground B", status: "LIVE", matchType: "league", scoreA: 21, scoreB: 18 },
+  { id: "m5", teamA: TEAMS.THU, teamB: TEAMS.BLA, dateStr: "March 29", time: "4:30 PM", venue: "Ground A", status: "UPCOMING", matchType: "league" },
+  { id: "m6", teamA: TEAMS.PHO, teamB: TEAMS.NIG, dateStr: "March 30", time: "10:00 AM", venue: "Ground B", status: "UPCOMING", matchType: "league" },
+  { id: "m7", teamA: TEAMS.STE, teamB: TEAMS.CYC, dateStr: "March 30", time: "2:00 PM", venue: "Ground A", status: "UPCOMING", matchType: "league" },
+  { id: "m8", teamA: TEAMS.IRO, teamB: TEAMS.VEL, dateStr: "March 30", time: "4:00 PM", venue: "Ground B", status: "UPCOMING", matchType: "league" },
 ];
